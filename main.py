@@ -129,7 +129,7 @@ class ShellExecutor(Star):
         """
         使用 inxi 工具查询系统状态。
         """
-        cmd = "inxi -F"  # 设置更新命令
+        cmd = "inxi -F"
 
         async for result in self._run_command(event, cmd):
             yield result
