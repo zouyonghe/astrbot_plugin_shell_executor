@@ -85,13 +85,17 @@ class ShellExecutor(Star):
                 else:
                     errors.append(line)  # 将非警告视为真正的错误
 
+            result = []
+            for line in output.splitlines():
+                result.append(line)
+
             if errors:
                 # 如果有真正的错误，抛出错误信息
-                yield event.plain_result(f"错误信息: \n" + "\n".join(errors))
+                yield event.plain_result(f"### 错误信息: ###\n\n" + "\n\n".join(errors)).use_t2i(True)
             if warnings:
-                yield event.plain_result(f"警告信息: \n" + "\n".join(warnings))
+                yield event.plain_result(f"### 警告信息: ###\n\n" + "\n\n".join(warnings)).use_t2i(True)
             if output:
-                yield event.plain_result(f"执行结果: \n{output}")
+                yield event.plain_result(f"### 执行结果: ###\n\n" + "\n\n".join(warnings)).use_t2i(True)
         except Exception as e:
             logger.error(f"执行命令 {cmd} 时失败: {str(e)}")
 
