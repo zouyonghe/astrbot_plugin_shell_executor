@@ -4,6 +4,7 @@ import paramiko  # 依赖 Paramiko 实现 SSH 功能
 
 from astrbot.api.all import *
 from astrbot.api.event.filter import *
+from astrbot.core.star.register import register_after_message_sent
 
 logger = logging.getLogger("astrbot")
 
@@ -76,11 +77,24 @@ class ShellExecutor(Star):
             error = stderr.read().decode()
             client.close()
 
-            if error:
-                yield event.plain_result(f"命令执行出错: {error}")
-            yield event.plain_result(f"命令执行成功: {output}")
+            # 过滤 stderr 中的警告信息
+            warnings = []
+            errors = []
+            for line in error.splitlines():
+                if line.startswith("warning:"):
+                    warnings.append(line)  # 将警告单独记录
+                else:
+                    errors.append(line)  # 将非警告视为真正的错误
+
+            if errors:
+                # 如果有真正的错误，抛出错误信息
+                yield event.plain_result(f"错误信息: \n" + "\n".join(errors))
+            if warnings:
+                yield event.plain_result(f"警告信息: \n" + "\n".join(warnings))
+            if output:
+                yield event.plain_result(f"执行结果: \n{output}")
         except Exception as e:
-            yield event.plain_result(f"执行命令失败: {str(e)}")
+            logger.error(f"执行命令 {cmd} 时失败: {str(e)}")
 
     @command_group("shell")
     def shell(self):
@@ -107,10 +121,5 @@ class ShellExecutor(Star):
         """
         cmd = "paru -Syu --noconfirm"  # 设置更新命令
 
-        try:
-            # 调用 _run_command 方法执行更新命令
-            async for result in self._run_command(event, cmd):
-                yield result
-        except Exception as e:
-            yield event.plain_result(f"系统更新失败: {str(e)}")
-
+        async for result in self._run_command(event, cmd):
+            yield result
