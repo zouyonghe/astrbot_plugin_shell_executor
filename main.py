@@ -126,7 +126,7 @@ class ShellExecutor(Star):
 
     @permission_type(PermissionType.ADMIN)
     @shell.command("neofetch")
-    async def arch_paru(self, event: AstrMessageEvent):
+    async def arch_neofetch(self, event: AstrMessageEvent):
         """
         在远程 Arch 系统上执行 neofetch 命令抓取系统信息。
         """
