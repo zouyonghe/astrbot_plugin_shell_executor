@@ -82,7 +82,6 @@ class ShellExecutor(Star):
         except Exception as e:
             yield event.plain_result(f"执行命令失败: {str(e)}")
 
-    @permission_type(PermissionType.ADMIN)
     @command_group("shell")
     def shell(self):
         pass
