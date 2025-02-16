@@ -4,7 +4,6 @@ import paramiko  # 依赖 Paramiko 实现 SSH 功能
 
 from astrbot.api.all import *
 from astrbot.api.event.filter import *
-from astrbot.core.star.register import register_after_message_sent
 
 logger = logging.getLogger("astrbot")
 
@@ -125,12 +124,13 @@ class ShellExecutor(Star):
             yield result
 
     @permission_type(PermissionType.ADMIN)
-    @shell.command("neofetch")
-    async def arch_neofetch(self, event: AstrMessageEvent):
+    @shell.command("inxi")
+    async def inxi(self, event: AstrMessageEvent):
         """
-        在远程 Arch 系统上执行 neofetch 命令抓取系统信息。
+        使用 inxi 工具查询系统状态。
         """
-        cmd = "neofetch"
+        cmd = "inxi -F"  # 设置更新命令
 
         async for result in self._run_command(event, cmd):
             yield result
+
