@@ -140,7 +140,7 @@ class ShellExecutor(Star):
         """
         查看Nvidia显卡状态
         """
-        cmd = "nvidia-smi"
+        cmd = "nvidia-smi --query-gpu=name,power.draw,power.limit,fan.speed,clocks.gr,clocks.mem --format=csv,noheader"
 
         async for result in self._run_command(event, cmd):
             yield result
