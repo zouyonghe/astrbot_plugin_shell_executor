@@ -7,7 +7,7 @@ from astrbot.api.event.filter import *
 
 logger = logging.getLogger("astrbot")
 
-@register("shell_executor", "buding", "用于远程shell命令执行的插件", "0.0.1",
+@register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.0",
           "https://github.com/zouyonghe/astrbot_plugin_shell_executor")
 class ShellExecutor(Star):
     def __init__(self, context: Context, config: dict):
