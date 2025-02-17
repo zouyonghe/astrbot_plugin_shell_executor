@@ -85,17 +85,13 @@ class ShellExecutor(Star):
                 else:
                     errors.append(line)  # 将非警告视为真正的错误
 
-            result = []
-            for line in output.splitlines():
-                result.append(line)
-
             if errors:
                 # 如果有真正的错误，抛出错误信息
                 yield event.plain_result("错误信息\n" + "\n".join(errors))
             if warnings:
                 yield event.plain_result("警告信息\n" + "\n".join(warnings))
             if output:
-                yield event.plain_result("执行结果\n" + "\n".join(warnings))
+                yield event.plain_result("执行结果\n" + output)
         except Exception as e:
             logger.error(f"执行命令 {cmd} 时失败: {str(e)}")
 
@@ -138,3 +134,13 @@ class ShellExecutor(Star):
         async for result in self._run_command(event, cmd):
             yield result
 
+    @permission_type(PermissionType.ADMIN)
+    @shell.command("nvidia-smi")
+    async def nvidia_smi(self, event: AstrMessageEvent):
+        """
+        查看Nvidia显卡状态
+        """
+        cmd = "nvidia-smi"
+
+        async for result in self._run_command(event, cmd):
+            yield result
