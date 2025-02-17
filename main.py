@@ -7,7 +7,7 @@ from astrbot.api.event.filter import *
 
 logger = logging.getLogger("astrbot")
 
-@register("shell_executor", "buding", "用于远程shell命令执行的插件", "0.0.1",
+@register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.0",
           "https://github.com/zouyonghe/astrbot_plugin_shell_executor")
 class ShellExecutor(Star):
     def __init__(self, context: Context, config: dict):
@@ -17,15 +17,22 @@ class ShellExecutor(Star):
         super().__init__(context)
         # 加载配置文件
         self.config = config
-        
-        # 初始化实例变量
-        self.ssh_host = self.config.get("ssh_host", "127.0.0.1")
-        self.ssh_port = self.config.get("ssh_port", 22)
-        self.username = self.config.get("username", "root")
-        self.password = self.config.get("password", "")
-        self.private_key_path = self.config.get("private_key_path", "~/.ssh/id_rsa")
-        self.passphrase = self.config.get("passphrase", "")
-        self.timeout = self.config.get("timeout", 60)
+
+        self.ssh_configurations = self.config.get("ssh_configurations", [])
+        self.current_config = None  # 当前选中的 SSH 配置项
+        if not self.ssh_configurations:
+            logger.error("未检测到任何 SSH 配置信息，请检查配置文件!")
+        else:
+            logger.info(f"加载了 {len(self.ssh_configurations)} 条 SSH 配置信息")
+
+        # # 初始化实例变量
+        # self.ssh_host = self.config.get("ssh_host", "127.0.0.1")
+        # self.ssh_port = self.config.get("ssh_port", 22)
+        # self.username = self.config.get("username", "root")
+        # self.password = self.config.get("password", "")
+        # self.private_key_path = self.config.get("private_key_path", "~/.ssh/id_rsa")
+        # self.passphrase = self.config.get("passphrase", "")
+        # self.timeout = self.config.get("timeout", 60)
 
     def connect_client(self):
         """
@@ -36,32 +43,32 @@ class ShellExecutor(Star):
 
         try:
             # 根据配置选择密钥或密码认证方式
-            if self.private_key_path and os.path.exists(os.path.expanduser(self.private_key_path)):
+            if self.current_config.private_key_path and os.path.exists(os.path.expanduser(self.current_config.private_key_path)):
                 private_key = paramiko.RSAKey.from_private_key_file(
-                    os.path.expanduser(self.private_key_path),
-                    password=self.passphrase or None
+                    os.path.expanduser(self.current_config.private_key_path),
+                    password=self.current_config.passphrase or None
                 )
                 client.connect(
-                    hostname=self.ssh_host,
-                    port=self.ssh_port,
-                    username=self.username,
+                    hostname=self.current_config.ssh_host,
+                    port=self.current_config.ssh_port,
+                    username=self.current_config.username,
                     pkey=private_key,
-                    timeout=self.timeout
+                    timeout=self.current_config.timeout
                 )
-                logger.info(f"[连接成功] 使用密钥认证连接到主机 {self.ssh_host}:{self.ssh_port}")
+                logger.info(f"[连接成功] 使用密钥认证连接到主机 {self.current_config.ssh_host}:{self.current_config.ssh_port}")
             else:
                 client.connect(
-                    hostname=self.ssh_host,
-                    port=self.ssh_port,
-                    username=self.username,
-                    password=self.password,
-                    timeout=self.timeout
+                    hostname=self.current_config.ssh_host,
+                    port=self.current_config.ssh_port,
+                    username=self.current_config.username,
+                    password=self.current_config.password,
+                    timeout=self.current_config.timeout
                 )
-                logger.info(f"[连接成功] 使用密码认证连接到主机 {self.ssh_host}:{self.ssh_port}")
+                logger.info(f"[连接成功] 使用密码认证连接到主机 {self.current_config.ssh_host}:{self.current_config.ssh_port}")
 
             return client
         except Exception as e:
-            logger.error(f"[连接失败] 无法连接到 {self.ssh_host}:{self.ssh_port}, 错误: {e}")
+            logger.error(f"[连接失败] 无法连接到 {self.current_config.ssh_host}:{self.current_config.ssh_port}, 错误: {e}")
             raise e
 
     # 可能存在安全风险，暂不启用自定义执行命令指令
@@ -100,6 +107,18 @@ class ShellExecutor(Star):
         pass
 
     @permission_type(PermissionType.ADMIN)
+    @shell.command("use")
+    async def check_connection(self, event: AstrMessageEvent, host_name: str):
+        """
+        根据别名切换到指定的 SSH 配置
+        """
+        for config in self.ssh_configurations:
+            if config.get("alias") == host_name:
+                self.current_config = config
+                yield event.plain_result(f"使用主机 {host_name} 的 SSH 配置")
+        yield event.plain_result(f"未找到主机名为 {host_name} 的 SSH 配置")
+
+    @permission_type(PermissionType.ADMIN)
     @shell.command("check")
     async def check_connection(self, event: AstrMessageEvent):
         """
@@ -108,9 +127,20 @@ class ShellExecutor(Star):
         try:
             client = self.connect_client()
             client.close()
-            yield event.plain_result(f"成功连接到 {self.ssh_host}:{self.ssh_port}")
+            yield event.plain_result(f"成功连接到 {self.current_config.ssh_host}:{self.current_config.ssh_port}")
         except Exception as e:
-            yield event.plain_result(f"无法连接到 {self.ssh_host}:{self.ssh_port} - {str(e)}")
+            yield event.plain_result(f"无法连接到 {self.current_config.ssh_host}:{self.current_config.ssh_port} - {str(e)}")
+
+    @permission_type(PermissionType.ADMIN)
+    @shell.command("use")
+    async def arch_paru(self, event: AstrMessageEvent, ):
+        """
+        在远程 Arch 系统上执行 paru -Syu --noconfirm 命令以更新系统。
+        """
+        cmd = "paru -Syu --noconfirm"  # 设置更新命令
+
+        async for result in self._run_command(event, cmd):
+            yield result
 
     @permission_type(PermissionType.ADMIN)
     @shell.command("paru")

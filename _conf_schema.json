@@ -1,44 +1,72 @@
 {
-    "ssh_host": {
-        "type": "string",
-        "description": "SSH 目标主机地址",
-        "default": "127.0.0.1",
-        "hint": "格式：IP地址或域名，例如：192.168.1.1 或 yourserver.com"
-    },
-    "ssh_port": {
-        "type": "int",
-        "description": "SSH 连接端口",
-        "default": 22,
-        "hint": "SSH 服务常用端口，默认为22"
-    },
-    "username": {
-        "type": "string",
-        "description": "用户名",
-        "default": "root",
-        "hint": "目标主机上的登录用户名"
-    },
-    "password": {
-        "type": "string",
-        "description": "登录密码",
-        "default": "",
-        "hint": "如果使用密钥认证，可留空"
-    },
-    "private_key_path": {
-        "type": "string",
-        "description": "私钥文件路径",
-        "default": "~/.ssh/id_rsa",
-        "hint": "用于密钥认证，填入私钥文件的绝对路径"
-    },
-    "passphrase": {
-        "type": "string",
-        "description": "私钥密码",
-        "default": "",
-        "hint": "私钥文件的加密密码，可选"
-    },
-    "timeout": {
-        "type": "int",
-        "description": "命令超时时间，单位秒",
-        "default": 60,
-        "hint": "如果命令执行超时将中断本次执行"
+    "ssh_configurations": {
+        "type": "array",
+        "description": "SSH 配置信息列表",
+        "default": [
+            {
+                "host_name": "default",
+                "ssh_host": "127.0.0.1",
+                "ssh_port": 22,
+                "username": "root",
+                "password": "",
+                "private_key_path": "~/.ssh/id_rsa",
+                "passphrase": "",
+                "timeout": 60
+            }
+        ],
+        "items": {
+            "type": "object",
+            "properties": {
+                "host_name": {
+                    "type": "string",
+                    "description": "主机名",
+                    "default": "default",
+                    "hint": "唯一主机名标识，例如：arch"
+                },
+                "ssh_host": {
+                    "type": "string",
+                    "description": "SSH 目标主机地址",
+                    "default": "127.0.0.1",
+                    "hint": "格式：IP地址或域名，例如：192.168.1.1 或 yourserver.com"
+                },
+                "ssh_port": {
+                    "type": "int",
+                    "description": "SSH 连接端口",
+                    "default": 22,
+                    "hint": "SSH 服务常用端口，默认为22"
+                },
+                "username": {
+                    "type": "string",
+                    "description": "用户名",
+                    "default": "root",
+                    "hint": "目标主机上的登录用户名"
+                },
+                "password": {
+                    "type": "string",
+                    "description": "登录密码",
+                    "default": "",
+                    "hint": "如果使用密钥认证，可留空"
+                },
+                "private_key_path": {
+                    "type": "string",
+                    "description": "私钥文件路径",
+                    "default": "~/.ssh/id_rsa",
+                    "hint": "用于密钥认证，填入私钥文件的绝对路径"
+                },
+                "passphrase": {
+                    "type": "string",
+                    "description": "私钥密码",
+                    "default": "",
+                    "hint": "私钥文件的加密密码，可选"
+                },
+                "timeout": {
+                    "type": "int",
+                    "description": "命令超时时间，单位秒",
+                    "default": 60,
+                    "hint": "如果命令执行超时将中断本次执行"
+                }
+            }
+        },
+        "hint": "多个 SSH 配置，请设置数组格式，每项为一个配置"
     }
 }
