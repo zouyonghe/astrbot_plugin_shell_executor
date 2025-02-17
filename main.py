@@ -145,8 +145,6 @@ class ShellExecutor(Star):
         async for result in self._run_command(event, cmd):
             yield result
 
-
-
     @permission_type(PermissionType.ADMIN)
     @shell.command("cpupower")
     async def cpupower(self, event: AstrMessageEvent):
@@ -154,6 +152,28 @@ class ShellExecutor(Star):
         使用cpupower查看cpu状态
         """
         cmd = "cpupower -c all frequency-info"
+
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @shell.command("reboot")
+    async def reboot(self, event: AstrMessageEvent):
+        """
+        重启远程系统
+        """
+        cmd = "sudo reboot"
+
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @shell.command("rewin")
+    async def rewin(self, event: AstrMessageEvent):
+        """
+        重启到windows系统
+        """
+        cmd = "sudo rewin"
 
         async for result in self._run_command(event, cmd):
             yield result
