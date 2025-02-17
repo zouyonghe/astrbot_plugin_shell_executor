@@ -91,11 +91,11 @@ class ShellExecutor(Star):
 
             if errors:
                 # 如果有真正的错误，抛出错误信息
-                yield event.plain_result("## 错误信息 ##\n" + "\n".join(errors))
+                yield event.plain_result("错误信息\n" + "\n".join(errors))
             if warnings:
-                yield event.plain_result("## 警告信息 ##\n" + "\n".join(warnings))
+                yield event.plain_result("警告信息\n" + "\n".join(warnings))
             if output:
-                yield event.plain_result("## 执行结果 ##\n" + "\n".join(warnings))
+                yield event.plain_result("执行结果\n" + "\n".join(warnings))
         except Exception as e:
             logger.error(f"执行命令 {cmd} 时失败: {str(e)}")
 
