@@ -87,11 +87,11 @@ class ShellExecutor(Star):
 
             if errors:
                 # 如果有真正的错误，抛出错误信息
-                yield event.plain_result("错误信息\n" + "\n".join(errors))
+                yield event.plain_result("Error:\n" + "\n".join(errors))
             if warnings:
-                yield event.plain_result("警告信息\n" + "\n".join(warnings))
+                yield event.plain_result("Warning:\n" + "\n".join(warnings))
             if output:
-                yield event.plain_result("执行结果\n" + output)
+                yield event.plain_result(output)
         except Exception as e:
             logger.error(f"执行命令 {cmd} 时失败: {str(e)}")
 
@@ -138,9 +138,22 @@ class ShellExecutor(Star):
     @shell.command("nvidia-smi")
     async def nvidia_smi(self, event: AstrMessageEvent):
         """
-        查看Nvidia显卡状态
+        查看nvidia显卡状态
         """
         cmd = "nvidia-smi --query-gpu=name,power.draw,power.limit,fan.speed,clocks.gr,clocks.mem --format=csv,noheader"
+
+        async for result in self._run_command(event, cmd):
+            yield result
+
+
+
+    @permission_type(PermissionType.ADMIN)
+    @shell.command("cpupower")
+    async def cpupower(self, event: AstrMessageEvent):
+        """
+        使用cpupower查看cpu状态
+        """
+        cmd = "cpupower -c all frequency-info"
 
         async for result in self._run_command(event, cmd):
             yield result
