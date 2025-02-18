@@ -200,7 +200,7 @@ class ShellExecutor(Star):
         """
         使用cpupower查看cpu状态
         """
-        cmd = "cpupower -c all frequency-info"
+        cmd = "cpupower frequency-info" # cpupower -c all frequency-info
 
         async for result in self._run_command(event, cmd):
             yield result
@@ -275,12 +275,12 @@ class ShellExecutor(Star):
     #
     # @permission_type(PermissionType.ADMIN)
     # @pty.command("exec")
-    # async def execute_command_in_pty(self, event: AstrMessageEvent, *args):
+    # async def execute_command_in_pty(self, event: AstrMessageEvent, arg1: str, arg2: str=None, arg3: str=None, arg4: str=None, arg5: str=None):
     #     """
     #     在伪终端执行命令。
     #     """
     #     session_id = event.get_sender_id()
-    #     cmd = " ".join(map(str, args))
+    #     cmd = " ".join(str(arg) for arg in [arg1, arg2, arg3, arg4, arg5] if arg is not None)
     #
     #     if self.check_illegal_command(cmd):
     #         yield event.plain_result("⚠️ 非法命令，将不会被执行！")
