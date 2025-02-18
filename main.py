@@ -227,19 +227,16 @@ class ShellExecutor(Star):
         async for result in self._run_command(event, cmd):
             yield result
 
+    @shell.group("pty")
+    def pty(self):
+        pass
 
-
-    @event_message_type(EventMessageType.ALL)
     @permission_type(PermissionType.ADMIN)
-    async def test_pty(self, event: AstrMessageEvent):
-        if event.message_str.startswith("shell pty exec"):
-            yield event.plain_result(event.message_str)
-            cmd = event.message_str.split("shell pty exec")[1].strip()
-            yield event.plain_result(f"cmd: {cmd}")
+    @pty.command("test")
+    async def test_pty(self, event: AstrMessageEvent, arg1: str, arg2: str=None, arg3: str=None, arg4: str=None, arg5: str=None):
+        cmd = " ".join(arg for arg in [arg1, arg2, arg3, arg4, arg5] if arg is not None)
 
-    # @shell.group("pty")
-    # def pty(self):
-    #     pass
+        yield event.plain_result(f"cmd: {cmd}")
 
     # @permission_type(PermissionType.ADMIN)
     # @pty.command("new")
