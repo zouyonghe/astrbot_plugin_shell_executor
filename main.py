@@ -212,7 +212,7 @@ class ShellExecutor(Star):
         """
         使用cpupower查看cpu状态
         """
-        cmd = "cpupower -c all frequency-info" # cpupower -c all frequency-info
+        cmd = "cpupower frequency-info" # cpupower -c all frequency-info
 
         async for result in self._run_command(event, cmd):
             yield result
@@ -238,7 +238,146 @@ class ShellExecutor(Star):
 
         async for result in self._run_command(event, cmd):
             yield result
+    
+    @shell.group("systemctl")
+    def systemctl(self):
+        pass
 
+    @permission_type(PermissionType.ADMIN)
+    @systemctl.command("start")
+    async def systemctl_start(self, event: AstrMessageEvent, service: str):
+        """
+        启动指定的系统服务
+        """
+        cmd = f"sudo systemctl start {service}"
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @systemctl.command("status")
+    async def systemctl_status(self, event: AstrMessageEvent, service: str):
+        """
+        查看指定系统服务的状态
+        """
+        cmd = f"sudo systemctl status {service}"
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @systemctl.command("stop")
+    async def systemctl_stop(self, event: AstrMessageEvent, service: str):
+        """
+        停止指定的系统服务
+        """
+        cmd = f"sudo systemctl stop {service}"
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @systemctl.command("enable")
+    async def systemctl_enable(self, event: AstrMessageEvent, service: str):
+        """
+        启用指定的系统服务
+        """
+        cmd = f"sudo systemctl enable {service}"
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @systemctl.command("disable")
+    async def systemctl_disable(self, event: AstrMessageEvent, service: str):
+        """
+        禁用指定的系统服务
+        """
+        cmd = f"sudo systemctl disable {service}"
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @systemctl.command("logs")
+    async def journalctl_logs(self, event: AstrMessageEvent, service: str):
+        """
+        查看指定服务的最近 100 条日志
+        """
+        cmd = f"journalctl -u {service} -n 100 --no-pager"
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @shell.group("docker")
+    def docker(self):
+        pass
+
+    @permission_type(PermissionType.ADMIN)
+    @docker.command("logs")
+    async def docker_logs(self, event: AstrMessageEvent, container: str):
+        """
+        查看指定 Docker 容器的日志。
+        """
+        cmd = f"docker logs {container}"
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @docker.command("start")
+    async def docker_start(self, event: AstrMessageEvent, container: str):
+        """
+        启动指定的 Docker 容器。
+        """
+        cmd = f"docker start {container}"
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @docker.command("stop")
+    async def docker_stop(self, event: AstrMessageEvent, container: str):
+        """
+        停止指定的 Docker 容器。
+        """
+        cmd = f"docker stop {container}"
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @docker.command("run")
+    async def docker_run(self, event: AstrMessageEvent, image: str, opt1: str = None, opt2: str = None, opt3: str = None):
+        """
+        运行一个新的 Docker 容器。
+        """
+        options = " ".join(str(opt) for opt in [opt1, opt2, opt3] if opt is not None)
+        cmd = f"docker run {options} {image}"
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @docker.command("pull")
+    async def docker_pull(self, event: AstrMessageEvent, image: str):
+        """
+        拉取指定的 Docker 镜像。
+        """
+        cmd = f"docker pull {image}"
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @docker.command("ps")
+    async def docker_ps(self, event: AstrMessageEvent):
+        """
+        列出所有运行中的 Docker 容器。
+        """
+        cmd = "docker ps"
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @docker.command("rm")
+    async def docker_rm(self, event: AstrMessageEvent, container: str):
+        """
+        删除指定的 Docker 容器。
+        """
+        cmd = f"docker rm {container}"
+        async for result in self._run_command(event, cmd):
+            yield result
+            
     @shell.group("pty")
     def pty(self):
         pass
@@ -260,7 +399,7 @@ class ShellExecutor(Star):
     #
     #     # 如果用户会话已存在，则提示会话已激活
     #     if session_id in self.pty_sessions:
-    #         yield event.plain_result("⚠️ 已有一个活动的伪终端会话，输入 /shell pty exit 以关闭会话。")
+    #         yield event.plain_result("⚠️ 已有一个活动的PTY会话，输入 /shell pty exit 以关闭会话。")
     #         return
     #
     #     try:
@@ -280,10 +419,10 @@ class ShellExecutor(Star):
     #         }
     #
     #         yield event.plain_result(
-    #             f"✅ 已启动伪终端会话 (主机: {self.ssh_host}:{self.ssh_port})。使用 /shell pty exec <command> 发送命令，输入 /shell pty exit 结束会话。")
+    #             f"✅ 已启动PTY会话 (主机: {self.ssh_host}:{self.ssh_port})。使用 /shell pty exec <command> 发送命令，输入 /shell pty exit 结束会话。")
     #     except Exception as e:
-    #         logger.error(f"启动伪终端失败: {e}")
-    #         yield event.plain_result(f"❌ 无法启动伪终端: {e}")
+    #         logger.error(f"启动PTY失败: {e}")
+    #         yield event.plain_result(f"❌ 无法启动PTY: {e}")
     #
     # @permission_type(PermissionType.ADMIN)
     # @pty.command("exec")
@@ -296,12 +435,12 @@ class ShellExecutor(Star):
     #
     #     if self.check_illegal_command(cmd):
     #         yield event.plain_result("⚠️ 非法命令，将不会被执行！")
-    #         logger.error(f"发些非法命令： {cmd}，发送者： {event.get_sender_id()}")
+    #         logger.error(f"已拒绝非法命令执行请求，命令： {cmd}，发送者： {event.get_sender_id()}")
     #         return
     #
     #     # 检查会话是否存在
     #     if session_id not in self.pty_sessions:
-    #         yield event.plain_result("⚠️ 当前没有活跃的伪终端会话，请先使用 /shell pty new 启动会话。")
+    #         yield event.plain_result("⚠️ 当前没有活跃的PTY会话，请先使用 /shell pty new 启动会话。")
     #         return
     #
     #     session = self.pty_sessions[session_id]
@@ -324,7 +463,7 @@ class ShellExecutor(Star):
     #
     #         yield event.plain_result(output.strip())
     #     except Exception as e:
-    #         logger.error(f"伪终端命令执行失败: {e}")
+    #         logger.error(f"PTY命令执行失败: {e}")
     #         yield event.plain_result(f"❌ 命令执行失败: {e}")
     #
     # @permission_type(PermissionType.ADMIN)
@@ -337,7 +476,7 @@ class ShellExecutor(Star):
     #
     #     # 检查会话是否存在
     #     if session_id not in self.pty_sessions:
-    #         yield event.plain_result("⚠️ 当前没有活跃的伪终端会话。")
+    #         yield event.plain_result("⚠️ 当前没有活跃的PTY会话。")
     #         return
     #
     #     try:
@@ -346,8 +485,8 @@ class ShellExecutor(Star):
     #         session["channel"].close()
     #         session["client"].close()
     #
-    #         yield event.plain_result("✅ 伪终端会话已关闭。")
+    #         yield event.plain_result("✅ PTY会话已关闭。")
     #     except Exception as e:
     #         logger.error(f"关闭伪终端失败: {e}")
-    #         yield event.plain_result(f"❌ 伪终端关闭失败: {e}")
+    #         yield event.plain_result(f"❌ PTY关闭失败: {e}")
 
