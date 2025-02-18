@@ -185,8 +185,8 @@ class ShellExecutor(Star):
             yield result
 
     @permission_type(PermissionType.ADMIN)
-    @shell.command("full")
-    async def inxi(self, event: AstrMessageEvent):
+    @shell.command("inxi-full")
+    async def inxi_full(self, event: AstrMessageEvent):
         """
         使用 inxi 工具查询完整系统状态。
         """
