@@ -72,9 +72,13 @@ class ShellExecutor(Star):
         执行单条 Shell 命令
         """
         try:
+            output = []
             client = self.connect_client()
             stdin, stdout, stderr = client.exec_command(cmd)
-            output = stdout.read().decode()
+            for line in stdout:
+                output.append(line.strip())
+
+            # output = stdout.read().decode()
             error = stderr.read().decode()
             client.close()
 
@@ -176,7 +180,18 @@ class ShellExecutor(Star):
     @shell.command("inxi")
     async def inxi(self, event: AstrMessageEvent):
         """
-        使用 inxi 工具查询系统状态。
+        使用 inxi 工具查询精简系统状态。
+        """
+        cmd = "inxi -c"
+
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @shell.command("inxi-full")
+    async def inxi(self, event: AstrMessageEvent):
+        """
+        使用 inxi 工具查询完整系统状态。
         """
         cmd = "inxi -F"
 
@@ -200,7 +215,7 @@ class ShellExecutor(Star):
         """
         使用cpupower查看cpu状态
         """
-        cmd = "cpupower frequency-info" # cpupower -c all frequency-info
+        cmd = "cpupower -c all frequency-info" # cpupower -c all frequency-info
 
         async for result in self._run_command(event, cmd):
             yield result
