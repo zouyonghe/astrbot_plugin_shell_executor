@@ -234,7 +234,7 @@ class ShellExecutor(Star):
     @permission_type(PermissionType.ADMIN)
     @pty.command("test")
     async def test_pty(self, event: AstrMessageEvent, arg1: str, arg2: str=None, arg3: str=None, arg4: str=None, arg5: str=None):
-        cmd = " ".join(arg for arg in [arg1, arg2, arg3, arg4, arg5] if arg is not None)
+        cmd = " ".join(str(arg) for arg in [arg1, arg2, arg3, arg4, arg5] if arg is not None)
 
         yield event.plain_result(f"cmd: {cmd}")
 
