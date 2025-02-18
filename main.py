@@ -72,32 +72,21 @@ class ShellExecutor(Star):
         执行单条 Shell 命令
         """
         try:
-            output = []
-            warnings = []
-            errors = []
-
             client = self.connect_client()
             stdin, stdout, stderr = client.exec_command(cmd)
 
-            for line in stdout:
-                output.append(line.strip())
-            for line in stderr:
+            output = stdout.read().decode()
+            error = stderr.read().decode()
+            client.close()
+
+            # 过滤 stderr 中的警告信息
+            warnings = []
+            errors = []
+            for line in error.splitlines():
                 if line.startswith("warning:"):
                     warnings.append(line)  # 将警告单独记录
                 else:
                     errors.append(line)  # 将非警告视为真正的错误
-            # output = stdout.read().decode()
-            # error = stderr.read().decode()
-            # client.close()
-            #
-            # # 过滤 stderr 中的警告信息
-            # warnings = []
-            # errors = []
-            # for line in error.splitlines():
-            #     if line.startswith("warning:"):
-            #         warnings.append(line)  # 将警告单独记录
-            #     else:
-            #         errors.append(line)  # 将非警告视为真正的错误
 
             if errors:
                 # 如果有真正的错误，抛出错误信息
@@ -105,7 +94,7 @@ class ShellExecutor(Star):
             if warnings:
                 yield event.plain_result("⚠️ Warning:\n" + "\n".join(warnings))
             if output:
-                yield event.plain_result("✅ Result:\n" + "\n".join(warnings))
+                yield event.plain_result("✅ Result:\n" + output)
         except Exception as e:
             logger.error(f"执行命令 {cmd} 时失败: {str(e)}")
 
