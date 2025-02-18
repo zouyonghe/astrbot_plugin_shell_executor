@@ -228,15 +228,18 @@ class ShellExecutor(Star):
             yield result
 
 
-    @shell.group("pty")
-    def pty(self):
-        pass
 
+    @event_message_type(EventMessageType.ALL)
     @permission_type(PermissionType.ADMIN)
-    @pty.command("test")
-    async def test_pty(self, event: AstrMessageEvent, *args):
-        cmd = " ".join(map(str, args))
-        yield event.plain_result(f"cmd: {cmd}")
+    async def test_pty(self, event: AstrMessageEvent):
+        if event.message_str.startswith("shell pty exec"):
+            yield event.plain_result(event.message_str)
+            cmd = event.message_str.split("shell pty exec")[1].strip()
+            yield event.plain_result(f"cmd: {cmd}")
+
+    # @shell.group("pty")
+    # def pty(self):
+    #     pass
 
     # @permission_type(PermissionType.ADMIN)
     # @pty.command("new")
