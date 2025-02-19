@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import threading
 
 import paramiko  # 依赖 Paramiko 实现 SSH 功能
 
@@ -28,7 +29,12 @@ class ShellExecutor(Star):
         self.passphrase = self.config.get("passphrase", "")
         self.timeout = self.config.get("timeout", 60)
 
+        # 存储当前PTY会话
         self.pty_sessions = {}
+
+        # 启动输出处理线程
+        threading.Thread(target=self.run_pty_output_loop, daemon=True).start()
+
 
     def connect_client(self):
         """
@@ -379,43 +385,43 @@ class ShellExecutor(Star):
         async for result in self._run_command(event, cmd):
             yield result
 
-    async def pty_output_async(self, event: AstrMessageEvent, session_id: str):
+    def run_pty_output_loop(self):
         """
-        异步获取伪终端的输出，根据 pty_sessions 的状态判断是否继续。
+        独立运行输出逻辑，循环监听和处理 `pty_sessions` 中的会话输出
         """
-        # 获取 session 及通道
-        session = self.pty_sessions.get(session_id)
-        if not session:
-            yield event.plain_result("⚠️ 会话不存在或已经关闭。")
-            return
+        logger.info("启动 PTY 会话输出监听线程")
+        asyncio.run(self.pty_output_loop())
 
-        channel = session["channel"]
-        output = ""
+    async def pty_output_loop(self):
+        """
+        循环监听当前活跃的 PTY 会话，读取和处理伪终端的输出
+        """
+        while True:
+            if not self.pty_sessions:  # 如果没有活动的会话
+                await asyncio.sleep(1)  # 短暂休眠，减少 CPU 消耗
+                continue
 
-        try:
-            while session_id in self.pty_sessions:  # 根据 pty_sessions 判断是否继续
+            for session_id, session in list(self.pty_sessions.items()):
+                channel = session.get("channel")
+                if not channel or channel.closed:  # 如果通道已经关闭，移除会话
+                    logger.info(f"PTY 会话 {session_id} 已关闭，清理会话信息")
+                    del self.pty_sessions[session_id]
+                    continue
+
+                # 检查是否有可用数据
                 if channel.recv_ready():
-                    # 异步从伪终端接收数据
-                    data = await asyncio.get_event_loop().run_in_executor(None, channel.recv, 4096)
+                    # 异步读取数据
+                    try:
+                        data = await asyncio.get_event_loop().run_in_executor(None, channel.recv, 4096)
+                        output = data.decode("utf-8").strip()
 
-                    # 解码并处理
-                    if data:
-                        output += data.decode("utf-8")
-                    else:
-                        break  # 如果没有更多数据，退出循环
-                else:
-                    await asyncio.sleep(0.1)  # 无数据时短暂休眠（非阻塞）
-            else:
-                logger.info(f"PTY会话 {session_id} 已关闭或不存在，停止输出接收。")
+                        if output:
+                            logger.info(f"PTY 会话 {session_id} 输出: {output}")
+                            # 这里可以对输出进行其他处理，比如发送到事件
+                    except Exception as e:
+                        logger.error(f"读取 PTY 会话 {session_id} 输出失败: {e}")
 
-            # 返回结果
-            if output.strip():
-                yield event.plain_result(output.strip())
-            else:
-                yield event.plain_result("⚠️ 没有任何输出。")
-        except Exception as e:
-            logger.error(f"异步获取伪终端输出时失败: {e}")
-            yield event.plain_result(f"❌ 获取伪终端输出失败: {e}")
+            await asyncio.sleep(0.1)  # 防止忙等
 
     @shell.group("pty")
     def pty(self):
@@ -452,9 +458,6 @@ class ShellExecutor(Star):
                 "client": client,
                 "channel": channel,
             }
-
-            # 启动异步输出
-            asyncio.create_task(self.pty_output_async(event, session_id))
 
             yield event.plain_result(
                 f"✅ 已启动PTY会话 (主机: {self.ssh_host}:{self.ssh_port})。\n使用 /shell pty exec <command> 发送命令，输入 /shell pty exit 结束会话。")
