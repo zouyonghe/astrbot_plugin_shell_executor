@@ -163,21 +163,6 @@ class ShellExecutor(Star):
         except Exception as e:
             yield event.plain_result(f"❌ 无法连接到 {self.ssh_host}:{self.ssh_port} - {str(e)}")
 
-    @permission_type(PermissionType.ADMIN)
-    @shell.command("exec")
-    async def execute_command(self, event: AstrMessageEvent, arg1: str, arg2: str = None, arg3: str = None,
-                              arg4: str = None, arg5: str = None):
-        """
-        在伪终端执行任意命令。
-        """
-        cmd = " ".join(str(arg) for arg in [arg1, arg2, arg3, arg4, arg5] if arg is not None)
-
-        if self.check_illegal_command(cmd):
-            yield event.plain_result("❌ Detected illegal command. Execution is not allowed.")
-            return
-
-        async for result in self._run_command(event, cmd):
-            yield result
 
     @permission_type(PermissionType.ADMIN)
     @shell.command("paru")
