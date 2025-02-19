@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import paramiko  # 依赖 Paramiko 实现 SSH 功能
@@ -377,7 +378,45 @@ class ShellExecutor(Star):
         cmd = f"docker rm {container}"
         async for result in self._run_command(event, cmd):
             yield result
-            
+
+    async def pty_output_async(self, event: AstrMessageEvent, session_id: str):
+        """
+        异步获取伪终端的输出，根据 pty_sessions 的状态判断是否继续。
+        """
+        # 获取 session 及通道
+        session = self.pty_sessions.get(session_id)
+        if not session:
+            yield event.plain_result("⚠️ 会话不存在或已经关闭。")
+            return
+
+        channel = session["channel"]
+        output = ""
+
+        try:
+            while session_id in self.pty_sessions:  # 根据 pty_sessions 判断是否继续
+                if channel.recv_ready():
+                    # 异步从伪终端接收数据
+                    data = await asyncio.get_event_loop().run_in_executor(None, channel.recv, 4096)
+
+                    # 解码并处理
+                    if data:
+                        output += data.decode("utf-8")
+                    else:
+                        break  # 如果没有更多数据，退出循环
+                else:
+                    await asyncio.sleep(0.1)  # 无数据时短暂休眠（非阻塞）
+            else:
+                logger.info(f"PTY会话 {session_id} 已关闭或不存在，停止输出接收。")
+
+            # 返回结果
+            if output.strip():
+                yield event.plain_result(output.strip())
+            else:
+                yield event.plain_result("⚠️ 没有任何输出。")
+        except Exception as e:
+            logger.error(f"异步获取伪终端输出时失败: {e}")
+            yield event.plain_result(f"❌ 获取伪终端输出失败: {e}")
+
     @shell.group("pty")
     def pty(self):
         pass
@@ -405,14 +444,20 @@ class ShellExecutor(Star):
             channel.get_pty()
             channel.invoke_shell()
 
+            # 切换到bash
+            channel.send("bash\n")
+
             # 在全局会话中记录伪终端会话
             self.pty_sessions[session_id] = {
                 "client": client,
                 "channel": channel,
             }
 
+            # 启动异步输出
+            asyncio.create_task(self.pty_output_async(event, session_id))
+
             yield event.plain_result(
-                f"✅ 已启动PTY会话 (主机: {self.ssh_host}:{self.ssh_port})。使用 /shell pty exec <command> 发送命令，输入 /shell pty exit 结束会话。")
+                f"✅ 已启动PTY会话 (主机: {self.ssh_host}:{self.ssh_port})。\n使用 /shell pty exec <command> 发送命令，输入 /shell pty exit 结束会话。")
         except Exception as e:
             logger.error(f"启动PTY失败: {e}")
             yield event.plain_result(f"❌ 无法启动PTY: {e}")
@@ -442,19 +487,7 @@ class ShellExecutor(Star):
         try:
             # 发送命令到伪终端
             channel.send(cmd + "\n")
-            output = ""
 
-            # 获取返回结果
-            while True:
-                if channel.recv_ready():
-                    data = channel.recv(1024).decode("utf-8")
-                    output += data
-                    if not data:
-                        break
-                else:
-                    break
-
-            yield event.plain_result(output.strip())
         except Exception as e:
             logger.error(f"PTY命令执行失败: {e}")
             yield event.plain_result(f"❌ 命令执行失败: {e}")
