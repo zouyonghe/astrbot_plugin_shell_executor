@@ -383,110 +383,103 @@ class ShellExecutor(Star):
         pass
 
     @permission_type(PermissionType.ADMIN)
-    @pty.command("test")
-    async def test_pty(self, event: AstrMessageEvent, arg1: str, arg2: str=None, arg3: str=None, arg4: str=None, arg5: str=None):
+    @pty.command("new")
+    async def start_interactive_pty(self, event: AstrMessageEvent):
+        """
+        启动伪终端会话。
+        """
+        session_id = event.get_sender_id()
+
+        # 如果用户会话已存在，则提示会话已激活
+        if session_id in self.pty_sessions:
+            yield event.plain_result("⚠️ 已有一个活动的PTY会话，输入 /shell pty exit 以关闭会话。")
+            return
+
+        try:
+            # 建立 SSH 客户端
+            client = self.connect_client()
+            transport = client.get_transport()
+
+            # 打开伪终端
+            channel = transport.open_session()
+            channel.get_pty()
+            channel.invoke_shell()
+
+            # 在全局会话中记录伪终端会话
+            self.pty_sessions[session_id] = {
+                "client": client,
+                "channel": channel,
+            }
+
+            yield event.plain_result(
+                f"✅ 已启动PTY会话 (主机: {self.ssh_host}:{self.ssh_port})。使用 /shell pty exec <command> 发送命令，输入 /shell pty exit 结束会话。")
+        except Exception as e:
+            logger.error(f"启动PTY失败: {e}")
+            yield event.plain_result(f"❌ 无法启动PTY: {e}")
+
+    @permission_type(PermissionType.ADMIN)
+    @pty.command("exec")
+    async def execute_command_in_pty(self, event: AstrMessageEvent, arg1: str, arg2: str=None, arg3: str=None, arg4: str=None, arg5: str=None):
+        """
+        在伪终端执行命令。
+        """
+        session_id = event.get_sender_id()
         cmd = " ".join(str(arg) for arg in [arg1, arg2, arg3, arg4, arg5] if arg is not None)
 
-        yield event.plain_result(f"cmd: {cmd}")
+        if self.check_illegal_command(cmd):
+            yield event.plain_result("⚠️ 非法命令，将不会被执行！")
+            logger.error(f"已拒绝非法命令执行请求，命令： {cmd}，发送者： {event.get_sender_id()}")
+            return
 
-    # @permission_type(PermissionType.ADMIN)
-    # @pty.command("new")
-    # async def start_interactive_pty(self, event: AstrMessageEvent):
-    #     """
-    #     启动伪终端会话。
-    #     """
-    #     session_id = event.get_sender_id()
-    #
-    #     # 如果用户会话已存在，则提示会话已激活
-    #     if session_id in self.pty_sessions:
-    #         yield event.plain_result("⚠️ 已有一个活动的PTY会话，输入 /shell pty exit 以关闭会话。")
-    #         return
-    #
-    #     try:
-    #         # 建立 SSH 客户端
-    #         client = self.connect_client()
-    #         transport = client.get_transport()
-    #
-    #         # 打开伪终端
-    #         channel = transport.open_session()
-    #         channel.get_pty()
-    #         channel.invoke_shell()
-    #
-    #         # 在全局会话中记录伪终端会话
-    #         self.pty_sessions[session_id] = {
-    #             "client": client,
-    #             "channel": channel,
-    #         }
-    #
-    #         yield event.plain_result(
-    #             f"✅ 已启动PTY会话 (主机: {self.ssh_host}:{self.ssh_port})。使用 /shell pty exec <command> 发送命令，输入 /shell pty exit 结束会话。")
-    #     except Exception as e:
-    #         logger.error(f"启动PTY失败: {e}")
-    #         yield event.plain_result(f"❌ 无法启动PTY: {e}")
-    #
-    # @permission_type(PermissionType.ADMIN)
-    # @pty.command("exec")
-    # async def execute_command_in_pty(self, event: AstrMessageEvent, arg1: str, arg2: str=None, arg3: str=None, arg4: str=None, arg5: str=None):
-    #     """
-    #     在伪终端执行命令。
-    #     """
-    #     session_id = event.get_sender_id()
-    #     cmd = " ".join(str(arg) for arg in [arg1, arg2, arg3, arg4, arg5] if arg is not None)
-    #
-    #     if self.check_illegal_command(cmd):
-    #         yield event.plain_result("⚠️ 非法命令，将不会被执行！")
-    #         logger.error(f"已拒绝非法命令执行请求，命令： {cmd}，发送者： {event.get_sender_id()}")
-    #         return
-    #
-    #     # 检查会话是否存在
-    #     if session_id not in self.pty_sessions:
-    #         yield event.plain_result("⚠️ 当前没有活跃的PTY会话，请先使用 /shell pty new 启动会话。")
-    #         return
-    #
-    #     session = self.pty_sessions[session_id]
-    #     channel = session["channel"]
-    #
-    #     try:
-    #         # 发送命令到伪终端
-    #         channel.send(cmd + "\n")
-    #         output = ""
-    #
-    #         # 获取返回结果
-    #         while True:
-    #             if channel.recv_ready():
-    #                 data = channel.recv(1024).decode("utf-8")
-    #                 output += data
-    #                 if not data:
-    #                     break
-    #             else:
-    #                 break
-    #
-    #         yield event.plain_result(output.strip())
-    #     except Exception as e:
-    #         logger.error(f"PTY命令执行失败: {e}")
-    #         yield event.plain_result(f"❌ 命令执行失败: {e}")
-    #
-    # @permission_type(PermissionType.ADMIN)
-    # @pty.command("exit")
-    # async def close_interactive_pty(self, event: AstrMessageEvent):
-    #     """
-    #     关闭当前用户的伪终端会话。
-    #     """
-    #     session_id = event.get_sender_id()
-    #
-    #     # 检查会话是否存在
-    #     if session_id not in self.pty_sessions:
-    #         yield event.plain_result("⚠️ 当前没有活跃的PTY会话。")
-    #         return
-    #
-    #     try:
-    #         # 获取会话信息并关闭
-    #         session = self.pty_sessions.pop(session_id)
-    #         session["channel"].close()
-    #         session["client"].close()
-    #
-    #         yield event.plain_result("✅ PTY会话已关闭。")
-    #     except Exception as e:
-    #         logger.error(f"关闭伪终端失败: {e}")
-    #         yield event.plain_result(f"❌ PTY关闭失败: {e}")
+        # 检查会话是否存在
+        if session_id not in self.pty_sessions:
+            yield event.plain_result("⚠️ 当前没有活跃的PTY会话，请先使用 /shell pty new 启动会话。")
+            return
+
+        session = self.pty_sessions[session_id]
+        channel = session["channel"]
+
+        try:
+            # 发送命令到伪终端
+            channel.send(cmd + "\n")
+            output = ""
+
+            # 获取返回结果
+            while True:
+                if channel.recv_ready():
+                    data = channel.recv(1024).decode("utf-8")
+                    output += data
+                    if not data:
+                        break
+                else:
+                    break
+
+            yield event.plain_result(output.strip())
+        except Exception as e:
+            logger.error(f"PTY命令执行失败: {e}")
+            yield event.plain_result(f"❌ 命令执行失败: {e}")
+
+    @permission_type(PermissionType.ADMIN)
+    @pty.command("exit")
+    async def close_interactive_pty(self, event: AstrMessageEvent):
+        """
+        关闭当前用户的伪终端会话。
+        """
+        session_id = event.get_sender_id()
+
+        # 检查会话是否存在
+        if session_id not in self.pty_sessions:
+            yield event.plain_result("⚠️ 当前没有活跃的PTY会话。")
+            return
+
+        try:
+            # 获取会话信息并关闭
+            session = self.pty_sessions.pop(session_id)
+            session["channel"].close()
+            session["client"].close()
+
+            yield event.plain_result("✅ PTY会话已关闭。")
+        except Exception as e:
+            logger.error(f"关闭伪终端失败: {e}")
+            yield event.plain_result(f"❌ PTY关闭失败: {e}")
 
