@@ -30,9 +30,6 @@ class ShellExecutor(Star):
         self.passphrase = self.config.get("passphrase", "")
         self.timeout = self.config.get("timeout", 60)
 
-        # 存储当前PTY会话
-        self.pty_sessions = {}
-
     def connect_client(self):
         """
         创建并返回一个已连接的 SSH 客户端
@@ -165,6 +162,22 @@ class ShellExecutor(Star):
             yield event.plain_result(f"✅ 成功连接到 {self.ssh_host}:{self.ssh_port}")
         except Exception as e:
             yield event.plain_result(f"❌ 无法连接到 {self.ssh_host}:{self.ssh_port} - {str(e)}")
+
+    @permission_type(PermissionType.ADMIN)
+    @shell.command("exec")
+    async def execute_command(self, event: AstrMessageEvent, arg1: str, arg2: str = None, arg3: str = None,
+                              arg4: str = None, arg5: str = None):
+        """
+        在伪终端执行任意命令。
+        """
+        cmd = " ".join(str(arg) for arg in [arg1, arg2, arg3, arg4, arg5] if arg is not None)
+
+        if self.check_illegal_command(cmd):
+            yield event.plain_result("❌ Detected illegal command. Execution is not allowed.")
+            return
+
+        async for result in self._run_command(event, cmd):
+            yield result
 
     @permission_type(PermissionType.ADMIN)
     @shell.command("paru")
@@ -381,116 +394,3 @@ class ShellExecutor(Star):
         cmd = f"docker rm {container}"
         async for result in self._run_command(event, cmd):
             yield result
-
-    @shell.group("pty")
-    def pty(self):
-        pass
-
-    @permission_type(PermissionType.ADMIN)
-    @pty.command("new")
-    async def start_interactive_pty(self, event: AstrMessageEvent):
-        """
-        启动伪终端会话。
-        """
-        session_id = event.get_sender_id()
-
-        # 如果用户会话已存在，则提示会话已激活
-        if session_id in self.pty_sessions:
-            yield event.plain_result("⚠️ 已有一个活动的PTY会话，输入 /shell pty exit 以关闭会话。")
-            return
-
-        try:
-            # 建立 SSH 客户端
-            client = self.connect_client()
-            transport = client.get_transport()
-
-            # 打开伪终端
-            channel = transport.open_session()
-            channel.get_pty()
-            channel.invoke_shell()
-
-            # 在全局会话中记录伪终端会话
-            self.pty_sessions[session_id] = {
-                "client": client,
-                "channel": channel,
-            }
-
-            yield event.plain_result(
-                f"✅ 已启动PTY会话 (主机: {self.ssh_host}:{self.ssh_port})。\n使用 /shell pty exec <command> 发送命令，输入 /shell pty exit 结束会话。")
-        except Exception as e:
-            logger.error(f"启动PTY失败: {e}")
-            yield event.plain_result(f"❌ 无法启动PTY: {e}")
-
-    @permission_type(PermissionType.ADMIN)
-    @pty.command("exec")
-    async def execute_command_in_pty(self, event: AstrMessageEvent, arg1: str, arg2: str=None, arg3: str=None, arg4: str=None, arg5: str=None):
-        """
-        在伪终端执行命令。
-        """
-        session_id = event.get_sender_id()
-        cmd = " ".join(str(arg) for arg in [arg1, arg2, arg3, arg4, arg5] if arg is not None)
-
-        if self.check_illegal_command(cmd):
-            yield event.plain_result("⚠️ 非法命令，将不会被执行！")
-            logger.error(f"已拒绝非法命令执行请求，命令： {cmd}，发送者： {event.get_sender_id()}")
-            return
-
-        # 检查会话是否存在
-        if session_id not in self.pty_sessions:
-            yield event.plain_result("⚠️ 当前没有活跃的PTY会话，请先使用 /shell pty new 启动会话。")
-            return
-
-        session = self.pty_sessions[session_id]
-        channel = session["channel"]
-
-        try:
-            channel.send(cmd + "\n")  # 发送命令
-            output = ""
-
-            timeout = 5  # 超时阈值（秒）
-            start_time = time.time()
-
-            while True:
-                if channel.recv_ready():  # 如果有数据准备好
-                    data = channel.recv(4096).decode("utf-8")  # 接收数据，解码
-                    output += data  # 将新接收到的数据追加到缓存中
-                    start_time = time.time()  # 换新开始时间
-
-                if channel.exit_status_ready():  # 如果命令执行完成，退出循环
-                    break
-
-                if time.time() - start_time > timeout:  # 检查是否超时
-                    yield event.plain_result("⚠️ 超时未收到响应，命令可能已完成或无输出。")
-                    break
-
-                time.sleep(0.1)  # 防止忙等
-            yield event.plain_result(output)
-
-        except Exception as e:
-            logger.error(f"PTY命令执行失败: {e}")
-            yield event.plain_result(f"❌ 命令执行失败: {e}")
-
-    @permission_type(PermissionType.ADMIN)
-    @pty.command("exit")
-    async def close_interactive_pty(self, event: AstrMessageEvent):
-        """
-        关闭当前用户的伪终端会话。
-        """
-        session_id = event.get_sender_id()
-
-        # 检查会话是否存在
-        if session_id not in self.pty_sessions:
-            yield event.plain_result("⚠️ 当前没有活跃的PTY会话。")
-            return
-
-        try:
-            # 获取会话信息并关闭
-            session = self.pty_sessions.pop(session_id)
-            session["channel"].close()
-            session["client"].close()
-
-            yield event.plain_result("✅ PTY会话已关闭。")
-        except Exception as e:
-            logger.error(f"关闭伪终端失败: {e}")
-            yield event.plain_result(f"❌ PTY关闭失败: {e}")
-
