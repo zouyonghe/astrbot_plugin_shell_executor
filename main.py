@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import threading
+import time
 
 import paramiko  # 依赖 Paramiko 实现 SSH 功能
 
@@ -31,10 +32,7 @@ class ShellExecutor(Star):
 
         # 存储当前PTY会话
         self.pty_sessions = {}
-
-        # 启动输出处理线程
-        threading.Thread(target=self.run_pty_output_loop, daemon=True).start()
-
+        self.output_queues = {}
 
     def connect_client(self):
         """
@@ -385,43 +383,36 @@ class ShellExecutor(Star):
         async for result in self._run_command(event, cmd):
             yield result
 
-    def run_pty_output_loop(self):
+    def _send_command_and_get_full_output(self, session_id: str, command: str):
         """
-        独立运行输出逻辑，循环监听和处理 `pty_sessions` 中的会话输出
+        对于给定的 session_id，在伪终端上发送一条命令并一次性返回完整输出。
         """
-        logger.info("启动 PTY 会话输出监听线程")
-        asyncio.run(self.pty_output_loop())
+        if session_id not in self.pty_sessions:
+            logger.error(f"会话 {session_id} 不存在，无法执行命令: {command}")
+            return "⚠️ 当前会话不存在，无法执行命令。"
 
-    async def pty_output_loop(self):
-        """
-        循环监听当前活跃的 PTY 会话，读取和处理伪终端的输出
-        """
-        while True:
-            if not self.pty_sessions:  # 如果没有活动的会话
-                await asyncio.sleep(1)  # 短暂休眠，减少 CPU 消耗
-                continue
+        session = self.pty_sessions[session_id]
+        channel = session.get("channel")
 
-            for session_id, session in list(self.pty_sessions.items()):
-                channel = session.get("channel")
-                if not channel or channel.closed:  # 如果通道已经关闭，移除会话
-                    logger.info(f"PTY 会话 {session_id} 已关闭，清理会话信息")
-                    del self.pty_sessions[session_id]
-                    continue
+        try:
+            channel.send(command + "\n")  # 发送命令
+            buffer = ""
 
-                # 检查是否有可用数据
-                if channel.recv_ready():
-                    # 异步读取数据
-                    try:
-                        data = await asyncio.get_event_loop().run_in_executor(None, channel.recv, 4096)
-                        output = data.decode("utf-8").strip()
+            while True:
+                if channel.recv_ready():  # 如果有数据准备好
+                    data = channel.recv(4096).decode("utf-8")  # 接收数据，解码
+                    buffer += data  # 将新接收到的数据追加到缓存中
 
-                        if output:
-                            logger.info(f"PTY 会话 {session_id} 输出: {output}")
-                            # 这里可以对输出进行其他处理，比如发送到事件
-                    except Exception as e:
-                        logger.error(f"读取 PTY 会话 {session_id} 输出失败: {e}")
+                if channel.exit_status_ready():  # 如果命令执行完成，退出循环
+                    break
 
-            await asyncio.sleep(0.1)  # 防止忙等
+                time.sleep(0.1)  # 防止忙等
+
+            return buffer.strip()  # 返回完整的命令输出结果
+
+        except Exception as e:
+            logger.error(f"执行命令 {command} 时发生错误: {str(e)}")
+            return f"❌ 错误: {str(e)}"
 
     @shell.group("pty")
     def pty(self):
@@ -450,8 +441,13 @@ class ShellExecutor(Star):
             channel.get_pty()
             channel.invoke_shell()
 
-            # 切换到bash
-            channel.send("bash\n")
+            # # 切换到bash
+            # channel.send("bash\n")
+
+            # 接收 Bash 启动的初始输出（预读输出缓冲区中的数据并忽略）
+            time.sleep(1)  # 小延迟，等待输出被写入缓冲区
+            if channel.recv_ready():
+                channel.recv(4096)  # 消费初始化产生的输出并丢弃
 
             # 在全局会话中记录伪终端会话
             self.pty_sessions[session_id] = {
@@ -488,8 +484,19 @@ class ShellExecutor(Star):
         channel = session["channel"]
 
         try:
-            # 发送命令到伪终端
-            channel.send(cmd + "\n")
+            channel.send(cmd + "\n")  # 发送命令
+            output = ""
+
+            while True:
+                if channel.recv_ready():  # 如果有数据准备好
+                    data = channel.recv(4096).decode("utf-8")  # 接收数据，解码
+                    output += data  # 将新接收到的数据追加到缓存中
+
+                if channel.exit_status_ready():  # 如果命令执行完成，退出循环
+                    break
+
+                time.sleep(0.1)  # 防止忙等
+            yield event.plain_result(output.strip())
 
         except Exception as e:
             logger.error(f"PTY命令执行失败: {e}")
