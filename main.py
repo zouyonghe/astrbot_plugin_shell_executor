@@ -32,7 +32,6 @@ class ShellExecutor(Star):
 
         # 存储当前PTY会话
         self.pty_sessions = {}
-        self.output_queues = {}
 
     def connect_client(self):
         """
@@ -383,37 +382,6 @@ class ShellExecutor(Star):
         async for result in self._run_command(event, cmd):
             yield result
 
-    def _send_command_and_get_full_output(self, session_id: str, command: str):
-        """
-        对于给定的 session_id，在伪终端上发送一条命令并一次性返回完整输出。
-        """
-        if session_id not in self.pty_sessions:
-            logger.error(f"会话 {session_id} 不存在，无法执行命令: {command}")
-            return "⚠️ 当前会话不存在，无法执行命令。"
-
-        session = self.pty_sessions[session_id]
-        channel = session.get("channel")
-
-        try:
-            channel.send(command + "\n")  # 发送命令
-            buffer = ""
-
-            while True:
-                if channel.recv_ready():  # 如果有数据准备好
-                    data = channel.recv(4096).decode("utf-8")  # 接收数据，解码
-                    buffer += data  # 将新接收到的数据追加到缓存中
-
-                if channel.exit_status_ready():  # 如果命令执行完成，退出循环
-                    break
-
-                time.sleep(0.1)  # 防止忙等
-
-            return buffer.strip()  # 返回完整的命令输出结果
-
-        except Exception as e:
-            logger.error(f"执行命令 {command} 时发生错误: {str(e)}")
-            return f"❌ 错误: {str(e)}"
-
     @shell.group("pty")
     def pty(self):
         pass
@@ -440,14 +408,6 @@ class ShellExecutor(Star):
             channel = transport.open_session()
             channel.get_pty()
             channel.invoke_shell()
-
-            # # 切换到bash
-            # channel.send("bash\n")
-
-            # 接收 Bash 启动的初始输出（预读输出缓冲区中的数据并忽略）
-            time.sleep(1)  # 小延迟，等待输出被写入缓冲区
-            if channel.recv_ready():
-                channel.recv(4096)  # 消费初始化产生的输出并丢弃
 
             # 在全局会话中记录伪终端会话
             self.pty_sessions[session_id] = {
@@ -487,16 +447,24 @@ class ShellExecutor(Star):
             channel.send(cmd + "\n")  # 发送命令
             output = ""
 
+            timeout = 5  # 超时阈值（秒）
+            start_time = time.time()
+
             while True:
                 if channel.recv_ready():  # 如果有数据准备好
                     data = channel.recv(4096).decode("utf-8")  # 接收数据，解码
                     output += data  # 将新接收到的数据追加到缓存中
+                    start_time = time.time()  # 换新开始时间
 
                 if channel.exit_status_ready():  # 如果命令执行完成，退出循环
                     break
 
+                if time.time() - start_time > timeout:  # 检查是否超时
+                    yield event.plain_result("⚠️ 超时未收到响应，命令可能已完成或无输出。")
+                    break
+
                 time.sleep(0.1)  # 防止忙等
-            yield event.plain_result(output.strip())
+            yield event.plain_result(output)
 
         except Exception as e:
             logger.error(f"PTY命令执行失败: {e}")
