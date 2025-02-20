@@ -7,7 +7,7 @@ from astrbot.api.event.filter import *
 
 logger = logging.getLogger("astrbot")
 
-@register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.0",
+@register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.1",
           "https://github.com/zouyonghe/astrbot_plugin_shell_executor")
 class ShellExecutor(Star):
     def __init__(self, context: Context, config: dict):
@@ -95,53 +95,6 @@ class ShellExecutor(Star):
                 yield event.plain_result("✅ Result:\n" + output)
         except Exception as e:
             logger.error(f"执行命令 {cmd} 时失败: {str(e)}")
-
-    def check_illegal_command(self, cmd: str) -> bool:
-        """
-        检测命令中是否存在可能造成系统损害的非法命令
-        """
-        illegal_keywords = [
-            # 文件操作
-            "rm", "dd", "cp", "mv", "rmdir",
-
-            # 网络操作
-            "curl", "wget", "scp", "ftp", "rsync",
-
-            # 系统管理
-            "reboot", "shutdown", "kill",
-
-            # 包管理
-            #"pacman", "paru", "yay", "makepkg",
-
-            # 危险符号
-            "|", "&&", ";",
-
-            # 高权限操作
-            "sudo", "su",
-
-            # 磁盘管理工具
-            "fdisk", "parted", "cfdisk", "sfdisk",
-
-            # 格式化工具
-            "mkfs", "mkswap",
-
-            # 磁盘复制与设备操作工具
-            "dd", "blkdiscard", "wipefs",
-
-            # 挂载与卸载
-            "mount", "umount",
-
-            # RAID 和分区管理工具
-            "mdadm", "vgcreate", "lvcreate", "pvcreate",
-
-            # 文件权限相关
-            "chmod", "chown", "chgrp",
-
-            # 用户管理相关
-            "usermod", "userdel", "groupmod", "groupdel", "passwd",
-
-        ]
-        return any(keyword in cmd for keyword in illegal_keywords)
 
     @command_group("shell")
     def shell(self):
