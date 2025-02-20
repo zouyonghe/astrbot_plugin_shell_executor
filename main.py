@@ -1,11 +1,7 @@
-import logging
-
 import paramiko  # 依赖 Paramiko 实现 SSH 功能
 
 from astrbot.api.all import *
 from astrbot.api.event.filter import *
-
-logger = logging.getLogger("astrbot")
 
 @register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.1",
           "https://github.com/zouyonghe/astrbot_plugin_shell_executor")
