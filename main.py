@@ -97,6 +97,41 @@ class ShellExecutor(Star):
         pass
 
     @permission_type(PermissionType.ADMIN)
+    @shell.command("help")
+    async def show_help(self, event: AstrMessageEvent):
+        """
+        显示插件帮助信息。
+        """
+        help_msg = [
+            "🖥️ Shell Executor 插件帮助",
+            "",
+            "📜 **主要指令列表**:",
+            "- `/shell check`：验证与远程服务器的连接是否有效。",
+            "- `/shell reboot`：重启远程系统。",
+            "- `/shell rewin`：重启到 Windows 系统。（双系统自用）",
+            "- `/shell cpupower`：查看 CPU 功率信息。",
+            "- `/shell nvidia-smi`：查看 NVIDIA 图形卡状态。",
+            "",
+            "🔧 **系统服务控制**（`/shell systemctl` 子命令）:",
+            "- `start [服务名]`：启动指定的服务，例如 `/shell systemctl start nginx`。",
+            "- `status [服务名]`：查看指定服务的状态，例如 `/shell systemctl status sshd`。",
+            "- `stop [服务名]`：停止指定的服务。",
+            "- `enable [服务名]`：设置服务为开机启动。",
+            "- `disable [服务名]`：设置服务为开机禁用。",
+            "- `logs [服务名]`：查看最近 100 条服务日志。",
+            "",
+            "🛠️ **Docker 容器管理**（`/shell docker` 子命令）:",
+            "- `logs [容器名]`：查看 Docker 容器日志，例如 `/shell docker logs my_container`。",
+            "- `start [容器名]`：启动指定的容器。",
+            "- `stop [容器名]`：停止指定的容器。",
+            "- `run [镜像] [选项...]`：运行一个新的容器。",
+            "- `pull [镜像]`：拉取指定 Docker 镜像。",
+            "- `ps`：列出所有运行中的 Docker 容器。",
+            "- `rm [容器名]`：删除指定的容器。",
+        ]
+        yield event.plain_result("\n".join(help_msg))
+
+    @permission_type(PermissionType.ADMIN)
     @shell.command("check")
     async def check_connection(self, event: AstrMessageEvent):
         """
