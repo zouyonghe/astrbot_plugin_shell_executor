@@ -6,7 +6,7 @@ from astrbot.api.event.filter import *
 @register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.1",
           "https://github.com/zouyonghe/astrbot_plugin_shell_executor")
 class ShellExecutor(Star):
-    def __init__(self, context: Context, config: dict):
+    def __init__(self, context: Context, config: AstrBotConfig):
         """
         初始化插件，加载配置项和命令列表
         """
