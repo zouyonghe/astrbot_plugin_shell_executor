@@ -1,9 +1,12 @@
+import re
+import shlex
+
 import paramiko  # 依赖 Paramiko 实现 SSH 功能
 
 from astrbot.api.all import *
 from astrbot.api.event.filter import *
 
-@register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.1",
+@register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.2",
           "https://github.com/zouyonghe/astrbot_plugin_shell_executor")
 class ShellExecutor(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -322,12 +325,12 @@ class ShellExecutor(Star):
 
     @permission_type(PermissionType.ADMIN)
     @docker.command("run")
-    async def docker_run(self, event: AstrMessageEvent, image: str, opt1: str = None, opt2: str = None, opt3: str = None):
+    async def docker_run(self, event: AstrMessageEvent, opt1: str, opt2: str = None, opt3: str = None, opt4: str = None, opt5: str = None):
         """
         运行一个新的 Docker 容器。
         """
-        options = " ".join(str(opt) for opt in [opt1, opt2, opt3] if opt is not None)
-        cmd = f"docker run {options} {image}"
+        options = [shlex.quote(opt) for opt in [opt1, opt2, opt3, opt4, opt5] if opt is not None]
+        cmd = f"docker run {' '.join(options)}"
         async for result in self._run_command(event, cmd):
             yield result
 
