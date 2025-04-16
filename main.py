@@ -176,7 +176,7 @@ class ShellExecutor(Star):
         """
         查看网卡信息。
         """
-        cmd = "lspci -vvv"
+        cmd = "lspci"
 
         async for result in self._run_command(event, cmd):
             yield result
