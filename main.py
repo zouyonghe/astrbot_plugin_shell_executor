@@ -1,10 +1,10 @@
-import re
 import shlex
 
 import paramiko  # 依赖 Paramiko 实现 SSH 功能
 
 from astrbot.api.all import *
 from astrbot.api.event.filter import *
+
 
 @register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.2",
           "https://github.com/zouyonghe/astrbot_plugin_shell_executor")
@@ -155,6 +155,28 @@ class ShellExecutor(Star):
         在远程 Arch 系统上执行 paru -Syu --noconfirm 命令以更新系统。
         """
         cmd = "paru -Syu --noconfirm"  # 设置更新命令
+
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @shell.command("ip")
+    async def ip(self, event: AstrMessageEvent):
+        """
+        查看网卡信息。
+        """
+        cmd = "ip a"
+
+        async for result in self._run_command(event, cmd):
+            yield result
+
+    @permission_type(PermissionType.ADMIN)
+    @shell.command("lspci")
+    async def lspci(self, event: AstrMessageEvent):
+        """
+        查看网卡信息。
+        """
+        cmd = "lspci -vvv"
 
         async for result in self._run_command(event, cmd):
             yield result
