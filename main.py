@@ -311,9 +311,6 @@ class ShellExecutor(Star):
             status["timestamp"] = self._safe_run(
                 client, "date '+%Y-%m-%d %H:%M:%S %Z'"
             ) or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            fetch_cmd = (self.fetch_command or "").strip()
-            if fetch_cmd and fetch_cmd.lower() != "none":
-                status["fetch_output"] = self._safe_run(client, fetch_cmd)
             status["summary_text"] = self._build_summary_text(status)
             return status
         finally:
@@ -377,19 +374,6 @@ class ShellExecutor(Star):
         cpu_usage = status.get("cpu_usage")
         cpu_usage_display = f"{cpu_usage}%" if cpu_usage is not None else "-"
         mem_percent_display = f"{mem_percent}%" if mem_percent is not None else "-"
-        fetch_output = status.get("fetch_output", "")
-        has_fetch = bool(fetch_output)
-        fetch_html = ""
-        if fetch_output:
-            fetch_html = f"""
-            <div class="panel fetch-panel">
-                <div class="fetch-header">
-                    <h3>系统信息</h3>
-                    <div class="muted">来自 {esc(self.fetch_command)}</div>
-                </div>
-                <pre class="ansi-block">{html.escape(fetch_output)}</pre>
-            </div>
-            """
 
         return f"""
         <html>
@@ -546,7 +530,6 @@ class ShellExecutor(Star):
                         <div>时间: {esc(status.get("timestamp"))}</div>
                     </div>
                 </div>
-                {fetch_html if has_fetch else ""}
                 <div class="section triple-grid">
                     <div class="panel">
                         <h3>CPU</h3>
