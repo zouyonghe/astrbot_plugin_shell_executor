@@ -147,18 +147,49 @@ class ShellExecutor(Star):
             "idle": r(idle),
         }
 
+    def _parse_mem_speed_value(self, text: str) -> float | None:
+        """将带单位的频率字符串转换为 MT/s"""
+        if not text:
+            return None
+        match = re.search(r"([\d.]+)\s*([A-Za-z/]+)?", text)
+        if not match:
+            return None
+        try:
+            num = float(match.group(1))
+        except ValueError:
+            return None
+        unit = (match.group(2) or "").lower()
+        if "mt" in unit:
+            factor = 1
+        elif "ghz" in unit:
+            factor = 2000  # GHz -> MHz -> MT/s (x2)
+        elif "mhz" in unit:
+            factor = 2    # MHz -> MT/s (x2)
+        else:
+            factor = 2    # 无单位时按 MHz -> MT/s
+        return num * factor
+
     def _get_memory_speed(self, client: paramiko.SSHClient) -> str | None:
-        """尝试获取内存频率，命令不可用则返回 None"""
+        """尝试获取内存有效传输率（MT/s），优先使用配置速度"""
         cmds = [
-            r"sudo dmidecode -t memory 2>/dev/null | awk -F: '/Speed:/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MHz\") {print $2; exit}}'",
-            r"dmidecode -t memory 2>/dev/null | awk -F: '/Speed:/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MHz\") {print $2; exit}}'",
-            r"sudo lshw -C memory 2>/dev/null | awk '/clock/ {print $2 $3; exit}'",
-            r"lshw -C memory 2>/dev/null | awk '/clock/ {print $2 $3; exit}'",
+            r"sudo dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MT\\/s\" && $2!=\"0 MHz\" && $2!=\"0\") print $2}'",
+            r"dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MT\\/s\" && $2!=\"0 MHz\" && $2!=\"0\") print $2}'",
+            r"sudo lshw -C memory 2>/dev/null | awk '/clock/ {print $2 $3}'",
+            r"lshw -C memory 2>/dev/null | awk '/clock/ {print $2 $3}'",
         ]
+        best_mt = None
         for cmd in cmds:
             out = (self._safe_run(client, cmd) or "").strip()
-            if out:
-                return out.splitlines()[0]
+            if not out:
+                continue
+            for line in out.splitlines():
+                val = self._parse_mem_speed_value(line)
+                if val is None:
+                    continue
+                if best_mt is None or val > best_mt:
+                    best_mt = val
+        if best_mt:
+            return f"{int(round(best_mt))} MT/s"
         return None
 
     def _ansi_to_html(self, text: str) -> str:
