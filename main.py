@@ -384,10 +384,10 @@ class ShellExecutor(Star):
             fetch_html = f"""
             <div class="panel fetch-panel">
                 <div class="fetch-header">
-                    <h3>系统信息 (fetch)</h3>
+                    <h3>系统信息</h3>
                     <div class="muted">来自 {esc(self.fetch_command)}</div>
                 </div>
-                <pre class="ansi-block">{self._ansi_to_html(fetch_output)}</pre>
+                <pre class="ansi-block">{html.escape(fetch_output)}</pre>
             </div>
             """
 
