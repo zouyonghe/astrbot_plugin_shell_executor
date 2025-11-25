@@ -582,11 +582,13 @@ class ShellExecutor(Star):
                 body {{
                     margin: 0;
                     padding: 12px 14px;
+                    min-height: 100vh;
                     font-family: "JetBrains Mono","SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
                     background: radial-gradient(circle at 18% 18%, #0f172a 0, #0f2747 35%, #0b3c66 70%, #0a2551 100%);
                     color: #eef3fb;
                     display: flex;
                     justify-content: center;
+                    align-items: center;
                 }}
                 .card {{
                     width: min(1100px, 100%);
