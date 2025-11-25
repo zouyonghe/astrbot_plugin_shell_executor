@@ -492,12 +492,13 @@ class ShellExecutor(Star):
         disks_html = ""
         for disk in status.get("disks", []):
             percent = disk.get("percent", 0)
+            usage_display = f"{esc(disk.get('used'))} / {esc(disk.get('size'))}"
+            percent_display = f"{percent}%"
             disks_html += f"""
             <div class="disk-row">
                 <div class="disk-mount" title="{esc(disk.get("mount"))}">{esc(disk.get("mount"))}</div>
-                <div class="disk-usage" title="{esc(disk.get("used"))} / {esc(disk.get("size"))}">{esc(disk.get("used"))} / {esc(disk.get("size"))}</div>
                 <div class="bar"><span style="width:{percent}%"></span></div>
-                <div class="disk-percent">{percent}%</div>
+                <div class="disk-value" title="{usage_display} ({percent_display})">{usage_display} ({percent_display})</div>
             </div>
             """
         if not disks_html:
@@ -523,7 +524,9 @@ class ShellExecutor(Star):
                 pass
 
             mem_display = f"{esc(mem_used)} / {esc(mem_total)} MiB"
-            util_display = f"{esc(gpu.get('util'))}%"
+            mem_percent_display = f"{mem_percent}%" if mem_percent != "-" else "-"
+            mem_value_text = f"{mem_display} ({mem_percent_display})" if mem_percent_display != "-" else mem_display
+            util_display = f"{util_percent}%" if util_percent != "-" else "-"
             core_clock = gpu.get("clock_core")
             mem_clock = gpu.get("clock_mem")
             core_display = f"{esc(core_clock)} MHz" if core_clock else "-"
@@ -539,7 +542,7 @@ class ShellExecutor(Star):
                 <div class="gpu-bar">
                     <div class="gpu-label">显存</div>
                     <div class="bar"><span style="width:{mem_percent if mem_percent != '-' else 0}%"></span></div>
-                    <div class="gpu-value">{mem_display}{f' ({mem_percent}%)' if mem_percent != '-' else ''}</div>
+                    <div class="gpu-value">{mem_value_text}</div>
                 </div>
                 <div class="gpu-bar">
                     <div class="gpu-label">负载</div>
@@ -686,11 +689,11 @@ class ShellExecutor(Star):
                 }}
                 .disk-row {{
                     display: grid;
-                    grid-template-columns: minmax(90px, 180px) minmax(150px, 220px) 1fr 70px;
+                    grid-template-columns: minmax(90px, 180px) 1fr 190px;
                     align-items: center;
-                    gap: 10px;
+                    gap: 12px;
                     font-size: 13px;
-                    margin-bottom: 6px;
+                    margin-bottom: 8px;
                 }}
                 .gpu-row {{
                     display: flex;
@@ -719,17 +722,12 @@ class ShellExecutor(Star):
                     text-overflow: ellipsis;
                 }}
                 .disk-usage {{
-                    min-width: 150px;
                     color: #cbd5e1;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
                 }}
-                .disk-percent {{
-                    min-width: 48px;
+                .disk-value {{
                     text-align: right;
-                    color: #f8fafc;
-                    font-weight: 600;
+                    color: #e5e7eb;
+                    font-variant-numeric: tabular-nums;
                 }}
                 .gpu-name {{
                     font-weight: 600;
@@ -767,7 +765,7 @@ class ShellExecutor(Star):
                 }}
                 @media (max-width: 780px) {{
                     .disk-row {{
-                        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
                     }}
                     .gpu-bar {{
                         grid-template-columns: 80px 1fr;
