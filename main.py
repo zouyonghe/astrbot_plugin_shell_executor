@@ -208,25 +208,6 @@ class ShellExecutor(Star):
             out_parts.append("</span>")
         return "".join(out_parts)
 
-    def _split_fetch_output(self, fetch_output: str) -> tuple[list[str], list[str]]:
-        """拆分 fetch 输出为 logo 与信息两列"""
-        ascii_lines: list[str] = []
-        info_lines: list[str] = []
-        for raw_line in fetch_output.splitlines():
-            line = raw_line.rstrip("\n")
-            if not line:
-                ascii_lines.append("")
-                info_lines.append("")
-                continue
-            match = re.match(r"^(.*?)(?: {2,})(.+)$", line)
-            if match:
-                ascii_part, info_part = match.groups()
-                ascii_lines.append(ascii_part)
-                info_lines.append(info_part)
-            else:
-                ascii_lines.append(line)
-                info_lines.append("")
-        return ascii_lines, info_lines
 
     def _collect_remote_status(self) -> dict:
         """
@@ -400,19 +381,13 @@ class ShellExecutor(Star):
         has_fetch = bool(fetch_output)
         fetch_html = ""
         if fetch_output:
-            logo_lines, info_lines = self._split_fetch_output(fetch_output)
-            logo_block = self._ansi_to_html("\n".join(logo_lines))
-            info_block = self._ansi_to_html("\n".join(info_lines))
             fetch_html = f"""
             <div class="panel fetch-panel">
                 <div class="fetch-header">
                     <h3>系统信息 (fetch)</h3>
                     <div class="muted">来自 {esc(self.fetch_command)}</div>
                 </div>
-                <div class="fetch-body">
-                    <pre class="ansi-block">{logo_block}</pre>
-                    <pre class="ansi-block fetch-info">{info_block}</pre>
-                </div>
+                <pre class="ansi-block">{self._ansi_to_html(fetch_output)}</pre>
             </div>
             """
 
@@ -540,7 +515,7 @@ class ShellExecutor(Star):
                     color: #cbd5e1;
                 }}
                 .fetch-panel pre {{
-                    margin: 0;
+                    margin: 8px 0 0 0;
                     font-size: 13px;
                     line-height: 1.1;
                     white-space: pre;
@@ -556,21 +531,6 @@ class ShellExecutor(Star):
                     justify-content: space-between;
                     align-items: baseline;
                     gap: 8px;
-                }}
-                .fetch-body {{
-                    display: grid;
-                    grid-template-columns: auto 1fr;
-                    gap: 12px;
-                    margin-top: 8px;
-                    align-items: start;
-                }}
-                .fetch-info {{
-                    min-width: 280px;
-                }}
-                @media (max-width: 860px) {{
-                    .fetch-body {{
-                        grid-template-columns: 1fr;
-                    }}
                 }}
             </style>
         </head>
