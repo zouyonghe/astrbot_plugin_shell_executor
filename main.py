@@ -401,6 +401,8 @@ class ShellExecutor(Star):
         fetch_html = ""
         if fetch_output:
             logo_lines, info_lines = self._split_fetch_output(fetch_output)
+            logo_block = self._ansi_to_html("\n".join(logo_lines))
+            info_block = self._ansi_to_html("\n".join(info_lines))
             fetch_html = f"""
             <div class="panel fetch-panel">
                 <div class="fetch-header">
@@ -408,8 +410,8 @@ class ShellExecutor(Star):
                     <div class="muted">来自 {esc(self.fetch_command)}</div>
                 </div>
                 <div class="fetch-body">
-                    <pre class="ansi-block">{self._ansi_to_html("\\n".join(logo_lines))}</pre>
-                    <pre class="ansi-block fetch-info">{self._ansi_to_html("\\n".join(info_lines))}</pre>
+                    <pre class="ansi-block">{logo_block}</pre>
+                    <pre class="ansi-block fetch-info">{info_block}</pre>
                 </div>
             </div>
             """
