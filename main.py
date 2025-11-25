@@ -172,8 +172,8 @@ class ShellExecutor(Star):
     def _get_memory_speed(self, client: paramiko.SSHClient) -> str | None:
         """尝试获取预设/配置的内存速度（MT/s），主要依赖 dmidecode"""
         dmidecode_cmds = [
-            r"sudo dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MT\\/s\" && $2!=\"0 MHz\" && $2!=\"0\") print $1 \":\" $2}'",
-            r"dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MT\\/s\" && $2!=\"0 MHz\" && $2!=\"0\") print $1 \":\" $2}'",
+            r"sudo -n dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MT\\/s\" && $2!=\"0 MHz\" && $2!=\"0\") print $1 \":\" $2}'",
+            r"PATH=$PATH:/usr/sbin:/sbin dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MT\\/s\" && $2!=\"0 MHz\" && $2!=\"0\") print $1 \":\" $2}'",
         ]
 
         def best_from_dmidecode(cmds: list[str]) -> float | None:
@@ -205,8 +205,8 @@ class ShellExecutor(Star):
 
         # 兜底尝试 lshw
         lshw_cmds = [
-            r"sudo lshw -C memory 2>/dev/null | awk '/clock/ {print $2 $3}'",
-            r"lshw -C memory 2>/dev/null | awk '/clock/ {print $2 $3}'",
+            r"sudo -n lshw -C memory 2>/dev/null | awk '/clock/ {print $2 $3}'",
+            r"PATH=$PATH:/usr/sbin:/sbin lshw -C memory 2>/dev/null | awk '/clock/ {print $2 $3}'",
         ]
         for cmd in lshw_cmds:
             out = (self._safe_run(client, cmd) or "").strip()
