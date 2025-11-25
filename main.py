@@ -170,26 +170,52 @@ class ShellExecutor(Star):
         return num * factor
 
     def _get_memory_speed(self, client: paramiko.SSHClient) -> str | None:
-        """尝试获取内存有效传输率（MT/s），优先使用配置速度"""
-        cmds = [
-            r"sudo dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MT\\/s\" && $2!=\"0 MHz\" && $2!=\"0\") print $2}'",
-            r"dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MT\\/s\" && $2!=\"0 MHz\" && $2!=\"0\") print $2}'",
+        """尝试获取预设/配置的内存速度（MT/s），主要依赖 dmidecode"""
+        dmidecode_cmds = [
+            r"sudo dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MT\\/s\" && $2!=\"0 MHz\" && $2!=\"0\") print $1 \":\" $2}'",
+            r"dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MT\\/s\" && $2!=\"0 MHz\" && $2!=\"0\") print $1 \":\" $2}'",
+        ]
+
+        def best_from_dmidecode(cmds: list[str]) -> float | None:
+            configured_best = None
+            current_best = None
+            for cmd in cmds:
+                out = (self._safe_run(client, cmd) or "").strip()
+                if not out:
+                    continue
+                for line in out.splitlines():
+                    if ":" not in line:
+                        continue
+                    key, val = line.split(":", 1)
+                    parsed = self._parse_mem_speed_value(val)
+                    if parsed is None:
+                        continue
+                    key_lower = key.lower()
+                    if "configured" in key_lower:
+                        if configured_best is None or parsed > configured_best:
+                            configured_best = parsed
+                    else:
+                        if current_best is None or parsed > current_best:
+                            current_best = parsed
+            return configured_best or current_best
+
+        best_mt = best_from_dmidecode(dmidecode_cmds)
+        if best_mt:
+            return f"{int(round(best_mt))} MT/s"
+
+        # 兜底尝试 lshw
+        lshw_cmds = [
             r"sudo lshw -C memory 2>/dev/null | awk '/clock/ {print $2 $3}'",
             r"lshw -C memory 2>/dev/null | awk '/clock/ {print $2 $3}'",
         ]
-        best_mt = None
-        for cmd in cmds:
+        for cmd in lshw_cmds:
             out = (self._safe_run(client, cmd) or "").strip()
             if not out:
                 continue
             for line in out.splitlines():
                 val = self._parse_mem_speed_value(line)
-                if val is None:
-                    continue
-                if best_mt is None or val > best_mt:
-                    best_mt = val
-        if best_mt:
-            return f"{int(round(best_mt))} MT/s"
+                if val:
+                    return f"{int(round(val))} MT/s"
         return None
 
     def _ansi_to_html(self, text: str) -> str:
