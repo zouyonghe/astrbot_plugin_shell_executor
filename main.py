@@ -292,6 +292,26 @@ class ShellExecutor(Star):
             if mem_total and mem_total > 0 and mem_used is not None:
                 status["mem_percent"] = round(mem_used / mem_total * 100, 1)
 
+            def _size_to_mb(val: str) -> float | None:
+                match = re.match(r"([\d.]+)\s*([KMGTP]?)(i?B)?", val, re.IGNORECASE)
+                if not match:
+                    return None
+                num, unit, _ = match.groups()
+                try:
+                    num = float(num)
+                except ValueError:
+                    return None
+                unit = unit.upper()
+                factor = {
+                    "": 1 / 1024,
+                    "K": 1 / 1024,
+                    "M": 1,
+                    "G": 1024,
+                    "T": 1024 * 1024,
+                    "P": 1024 * 1024 * 1024,
+                }.get(unit, None)
+                return num * factor if factor is not None else None
+
             df_output = self._safe_run(
                 client,
                 "df -h --output=target,used,size,pcent -x tmpfs -x devtmpfs | tail -n +2 | head -n 6",
@@ -301,6 +321,9 @@ class ShellExecutor(Star):
                 parts = line.split()
                 if len(parts) == 4:
                     mount, used, size, percent = parts
+                    total_mb = _size_to_mb(size)
+                    if total_mb is not None and total_mb < 100:
+                        continue
                     try:
                         percent_num = int(re.sub(r"[^0-9]", "", percent) or 0)
                     except ValueError:
