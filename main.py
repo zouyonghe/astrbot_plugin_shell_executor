@@ -509,26 +509,26 @@ class ShellExecutor(Star):
                     margin: 0;
                     padding: 12px 14px;
                     font-family: "JetBrains Mono","SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
-                    background: radial-gradient(circle at 20% 20%, #1f2937 0, #0b1220 35%, #090d17 70%, #05070d 100%);
-                    color: #e6e9f0;
+                    background: radial-gradient(circle at 18% 18%, #0f172a 0, #0f2747 35%, #0b3c66 70%, #0a2551 100%);
+                    color: #eef3fb;
                     display: flex;
                     justify-content: center;
                 }}
                 .card {{
                     width: min(1100px, 100%);
                     margin: 0 auto;
-                    background: rgba(17, 24, 39, 0.72);
-                    border: 1px solid rgba(255, 255, 255, 0.06);
+                    background: rgba(15, 38, 72, 0.85);
+                    border: 1px solid rgba(255, 255, 255, 0.14);
                     border-radius: 16px;
-                    box-shadow: 0 14px 48px rgba(0, 0, 0, 0.45);
+                    box-shadow: 0 18px 52px rgba(0, 0, 0, 0.55);
                     padding: 16px 18px 18px 18px;
-                    backdrop-filter: blur(10px);
+                    backdrop-filter: blur(12px);
                 }}
                 .header {{
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-start;
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
                     padding-bottom: 14px;
                     margin-bottom: 14px;
                 }}
@@ -539,17 +539,17 @@ class ShellExecutor(Star):
                     font-size: 24px;
                     font-weight: 700;
                     letter-spacing: 0.5px;
-                    color: #f8fafc;
+                    color: #f9fbff;
                 }}
                 .subtitle {{
-                    color: #9ca3af;
+                    color: #b7c8e6;
                     margin-top: 6px;
                     font-size: 14px;
                 }}
                 .meta {{
                     text-align: right;
                     font-size: 12px;
-                    color: #8b95a5;
+                    color: #c1d4ef;
                 }}
                 .section {{
                     margin-top: 12px;
@@ -562,15 +562,15 @@ class ShellExecutor(Star):
                     gap: 12px;
                 }}
                 .panel {{
-                    background: rgba(255, 255, 255, 0.03);
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    background: rgba(255, 255, 255, 0.06);
+                    border: 1px solid rgba(255, 255, 255, 0.12);
                     border-radius: 12px;
                     padding: 12px 14px;
                 }}
                 .panel h3 {{
                     margin: 0 0 8px 0;
                     font-size: 14px;
-                    color: #cbd5e1;
+                    color: #d9e5f9;
                     letter-spacing: 0.2px;
                 }}
                 .value-row {{
@@ -586,10 +586,10 @@ class ShellExecutor(Star):
                 }}
                 .pill {{
                     padding: 2px 8px;
-                    background: rgba(255, 255, 255, 0.08);
-                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    background: rgba(255, 255, 255, 0.14);
+                    border: 1px solid rgba(255, 255, 255, 0.16);
                     border-radius: 999px;
-                    color: #cbd5e1;
+                    color: #e7edfa;
                     font-size: 12px;
                     line-height: 1.4;
                 }}
@@ -606,7 +606,7 @@ class ShellExecutor(Star):
                     font-variant-numeric: tabular-nums;
                 }}
                 .muted {{
-                    color: #6b7280;
+                    color: #a9bad4;
                 }}
                 .disk-row {{
                     display: grid;
@@ -626,14 +626,14 @@ class ShellExecutor(Star):
                 .bar {{
                     width: 100%;
                     height: 8px;
-                    background: rgba(255, 255, 255, 0.08);
+                    background: rgba(255, 255, 255, 0.16);
                     border-radius: 4px;
                     overflow: hidden;
                 }}
                 .bar span {{
                     display: block;
                     height: 100%;
-                    background: linear-gradient(90deg, #38bdf8, #6366f1);
+                    background: linear-gradient(90deg, #22d3ee, #60a5fa);
                 }}
                 .disk-mount {{
                     min-width: 80px;
