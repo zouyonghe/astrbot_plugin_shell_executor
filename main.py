@@ -670,16 +670,16 @@ class ShellExecutor(Star):
                     line-height: 1.4;
                 }}
                 .bar-row {{
-                    display: grid;
-                    grid-template-columns: 1fr 150px;
+                    display: flex;
                     align-items: center;
-                    gap: 10px;
-                    margin-top: 6px;
+                    gap: 12px;
+                    margin-top: 8px;
                 }}
                 .bar-value {{
                     text-align: right;
                     color: #e5e7eb;
                     font-variant-numeric: tabular-nums;
+                    min-width: 160px;
                 }}
                 .muted {{
                     color: #a9bad4;
@@ -701,7 +701,7 @@ class ShellExecutor(Star):
                 }}
                 .bar {{
                     width: 100%;
-                    height: 8px;
+                    height: 10px;
                     background: rgba(255, 255, 255, 0.16);
                     border-radius: 4px;
                     overflow: hidden;
@@ -775,6 +775,15 @@ class ShellExecutor(Star):
                     .gpu-value {{
                         width: auto;
                         justify-self: end;
+                    }}
+                    .bar-row {{
+                        flex-direction: column;
+                        align-items: flex-start;
+                    }}
+                    .bar-value {{
+                        min-width: 0;
+                        width: 100%;
+                        text-align: left;
                     }}
                 }}
                 .fetch-panel pre {{
