@@ -147,6 +147,20 @@ class ShellExecutor(Star):
             "idle": r(idle),
         }
 
+    def _get_memory_speed(self, client: paramiko.SSHClient) -> str | None:
+        """尝试获取内存频率，命令不可用则返回 None"""
+        cmds = [
+            r"sudo dmidecode -t memory 2>/dev/null | awk -F: '/Speed:/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MHz\") {print $2; exit}}'",
+            r"dmidecode -t memory 2>/dev/null | awk -F: '/Speed:/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MHz\") {print $2; exit}}'",
+            r"sudo lshw -C memory 2>/dev/null | awk '/clock/ {print $2 $3; exit}'",
+            r"lshw -C memory 2>/dev/null | awk '/clock/ {print $2 $3; exit}'",
+        ]
+        for cmd in cmds:
+            out = (self._safe_run(client, cmd) or "").strip()
+            if out:
+                return out.splitlines()[0]
+        return None
+
     def _ansi_to_html(self, text: str) -> str:
         """将 ANSI 颜色序列转换为简单的 HTML span 样式"""
         if not text:
@@ -264,6 +278,7 @@ class ShellExecutor(Star):
             status["cpu_usage"] = (
                 cpu_usage_detail.get("total") if isinstance(cpu_usage_detail, dict) else None
             )
+            status["mem_speed"] = self._get_memory_speed(client)
 
             mem_output = self._safe_run(client, "LANG=C free -m")
             mem_total = mem_used = swap_total = swap_used = None
@@ -408,21 +423,14 @@ class ShellExecutor(Star):
         mem_used = status.get("mem_used")
         mem_percent = status.get("mem_percent")
         mem_free = status.get("mem_free")
+        mem_speed = status.get("mem_speed")
         mem_line = "-"
         mem_free_line = "-"
         if mem_total and mem_used is not None:
             mem_line = f"{mem_used} / {mem_total} MiB"
             if mem_free is not None:
                 mem_free_line = f"{mem_free} MiB 可用"
-        swap_total = status.get("swap_total")
-        swap_used = status.get("swap_used")
-        swap_line = f"{esc(swap_used or '-')} / {esc(swap_total or '-')} MiB"
-        if swap_total and swap_used is not None and swap_total > 0:
-            try:
-                swap_percent = round(float(swap_used) / float(swap_total) * 100)
-                swap_line += f" ({swap_percent}%)"
-            except (ValueError, ZeroDivisionError):
-                pass
+        mem_speed_line = mem_speed or "-"
         load_avg = esc(status.get("load_avg", "-"))
         disks_html = ""
         for disk in status.get("disks", []):
@@ -764,7 +772,7 @@ class ShellExecutor(Star):
                             <div class="bar-value">{mem_line}</div>
                         </div>
                         <div class="muted" style="margin-top:4px;">{mem_free_line}</div>
-                        <div class="muted" style="margin-top:4px;">Swap: {swap_line}</div>
+                        <div class="muted" style="margin-top:4px;">内存频率: {esc(mem_speed_line)}</div>
                     </div>
                     <div class="panel">
                         <h3>运行时间</h3>
