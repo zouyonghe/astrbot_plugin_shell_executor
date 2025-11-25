@@ -812,7 +812,7 @@ class ShellExecutor(Star):
                         <div class="subtitle">{esc(status.get("os"))}</div>
                     </div>
                     <div class="meta">
-                        <div>连接: {esc(status.get("host"))}:{esc(self.ssh_port)}</div>
+                        <div>IP: {esc(status.get("host"))}:{esc(self.ssh_port)}</div>
                         <div>时间: {esc(status.get("timestamp"))}</div>
                     </div>
                 </div>
