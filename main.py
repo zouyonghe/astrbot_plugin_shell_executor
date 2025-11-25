@@ -463,7 +463,6 @@ class ShellExecutor(Star):
             gpus_html = "<div class='gpu-row muted'>GPU 信息不可用或无显卡</div>"
 
         cpu_usage = status.get("cpu_usage")
-        cpu_usage_detail = status.get("cpu_usage_detail") or {}
         cpu_usage_display = f"{cpu_usage}%" if cpu_usage is not None else "-"
         mem_percent_display = f"{mem_percent}%" if mem_percent is not None else "-"
         cpu_freq = status.get("cpu_freq")
@@ -484,19 +483,6 @@ class ShellExecutor(Star):
                 except (TypeError, ValueError):
                     max_part = f" / {cpu_freq_max}"
             cpu_freq_line = f"频率: {freq_val}{max_part} MHz"
-
-        cpu_breakdown_line = ""
-        cpu_parts = []
-        if cpu_usage_detail.get("user") is not None:
-            cpu_parts.append(f"用户 {cpu_usage_detail['user']}%")
-        if cpu_usage_detail.get("system") is not None:
-            cpu_parts.append(f"系统 {cpu_usage_detail['system']}%")
-        if cpu_usage_detail.get("iowait") is not None:
-            cpu_parts.append(f"I/O等待 {cpu_usage_detail['iowait']}%")
-        if cpu_parts:
-            cpu_breakdown_line = "分布: " + " · ".join(cpu_parts)
-        elif cpu_usage_display != "-":
-            cpu_breakdown_line = f"分布: 总占用 {cpu_usage_display}"
 
         return f"""
         <html>
@@ -727,7 +713,6 @@ class ShellExecutor(Star):
                             <div class="value">{cpu_usage_display}</div>
                             <div class="pill">总占用</div>
                         </div>
-                        <div class="muted" style="margin-top:2px;">{cpu_breakdown_line or '分布: 未获取'}</div>
                         <div class="muted" style="margin-top:4px;">{esc(status.get("cpu_model"))}</div>
                         <div class="muted" style="margin-top:4px;">{cpu_freq_line or '频率: 未获取'}</div>
                         <div class="muted" style="margin-top:4px;">平均负载: {load_avg}</div>
