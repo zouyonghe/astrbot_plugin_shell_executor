@@ -285,8 +285,10 @@ class ShellExecutor(Star):
                                 swap_used = int(parts[2])
                             except ValueError:
                                 logger.warning(f"[解析 Swap 失败] free 输出: {line}")
+            mem_free = mem_total - mem_used if mem_total is not None and mem_used is not None else None
             status["mem_total"] = mem_total
             status["mem_used"] = mem_used
+            status["mem_free"] = mem_free
             status["swap_total"] = swap_total
             status["swap_used"] = swap_used
             if mem_total and mem_total > 0 and mem_used is not None:
@@ -396,9 +398,22 @@ class ShellExecutor(Star):
         mem_total = status.get("mem_total")
         mem_used = status.get("mem_used")
         mem_percent = status.get("mem_percent")
+        mem_free = status.get("mem_free")
         mem_line = "-"
+        mem_free_line = "-"
         if mem_total and mem_used is not None:
             mem_line = f"{mem_used} / {mem_total} MiB"
+            if mem_free is not None:
+                mem_free_line = f"{mem_free} MiB 可用"
+        swap_total = status.get("swap_total")
+        swap_used = status.get("swap_used")
+        swap_line = f"{esc(swap_used or '-')} / {esc(swap_total or '-')} MiB"
+        if swap_total and swap_used is not None and swap_total > 0:
+            try:
+                swap_percent = round(float(swap_used) / float(swap_total) * 100)
+                swap_line += f" ({swap_percent}%)"
+            except (ValueError, ZeroDivisionError):
+                pass
         load_avg = esc(status.get("load_avg", "-"))
         disks_html = ""
         for disk in status.get("disks", []):
@@ -578,6 +593,18 @@ class ShellExecutor(Star):
                     font-size: 12px;
                     line-height: 1.4;
                 }}
+                .bar-row {{
+                    display: grid;
+                    grid-template-columns: 1fr 150px;
+                    align-items: center;
+                    gap: 10px;
+                    margin-top: 6px;
+                }}
+                .bar-value {{
+                    text-align: right;
+                    color: #e5e7eb;
+                    font-variant-numeric: tabular-nums;
+                }}
                 .muted {{
                     color: #6b7280;
                 }}
@@ -719,9 +746,16 @@ class ShellExecutor(Star):
                     </div>
                     <div class="panel">
                         <h3>内存</h3>
-                        <div class="value">{mem_percent_display}</div>
-                        <div class="muted">{mem_line}</div>
-                        <div class="muted" style="margin-top:4px;">Swap: {esc(status.get("swap_used") or '-')} / {esc(status.get("swap_total") or '-')} MiB</div>
+                        <div class="value-row">
+                            <div class="value">{mem_percent_display}</div>
+                            <div class="pill">内存占用</div>
+                        </div>
+                        <div class="bar-row">
+                            <div class="bar"><span style="width:{mem_percent if mem_percent is not None else 0}%"></span></div>
+                            <div class="bar-value">{mem_line}</div>
+                        </div>
+                        <div class="muted" style="margin-top:4px;">{mem_free_line}</div>
+                        <div class="muted" style="margin-top:4px;">Swap: {swap_line}</div>
                     </div>
                     <div class="panel">
                         <h3>运行时间</h3>
