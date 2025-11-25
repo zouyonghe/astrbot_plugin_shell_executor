@@ -382,8 +382,8 @@ class ShellExecutor(Star):
             percent = disk.get("percent", 0)
             disks_html += f"""
             <div class="disk-row">
-                <div class="disk-mount">{esc(disk.get("mount"))}</div>
-                <div class="disk-usage">{esc(disk.get("used"))} / {esc(disk.get("size"))}</div>
+                <div class="disk-mount" title="{esc(disk.get("mount"))}">{esc(disk.get("mount"))}</div>
+                <div class="disk-usage" title="{esc(disk.get("used"))} / {esc(disk.get("size"))}">{esc(disk.get("used"))} / {esc(disk.get("size"))}</div>
                 <div class="bar"><span style="width:{percent}%"></span></div>
                 <div class="disk-percent">{percent}%</div>
             </div>
@@ -574,7 +574,7 @@ class ShellExecutor(Star):
                 }}
                 .disk-row {{
                     display: grid;
-                    grid-template-columns: 110px 170px 1fr 60px;
+                    grid-template-columns: minmax(90px, 180px) minmax(150px, 220px) 1fr 70px;
                     align-items: center;
                     gap: 10px;
                     font-size: 13px;
@@ -602,10 +602,16 @@ class ShellExecutor(Star):
                 .disk-mount {{
                     min-width: 80px;
                     font-weight: 600;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }}
                 .disk-usage {{
                     min-width: 150px;
                     color: #cbd5e1;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }}
                 .disk-percent {{
                     min-width: 48px;
@@ -649,7 +655,7 @@ class ShellExecutor(Star):
                 }}
                 @media (max-width: 780px) {{
                     .disk-row {{
-                        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
                     }}
                     .gpu-bar {{
                         grid-template-columns: 80px 1fr;
