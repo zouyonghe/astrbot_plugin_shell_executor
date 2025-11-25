@@ -265,7 +265,7 @@ class ShellExecutor(Star):
                 cpu_usage_detail.get("total") if isinstance(cpu_usage_detail, dict) else None
             )
 
-            mem_output = self._safe_run(client, "free -m")
+            mem_output = self._safe_run(client, "LANG=C free -m")
             mem_total = mem_used = swap_total = swap_used = None
             if mem_output:
                 for line in mem_output.splitlines():
@@ -291,6 +291,15 @@ class ShellExecutor(Star):
             status["mem_free"] = mem_free
             status["swap_total"] = swap_total
             status["swap_used"] = swap_used
+            if swap_total is None and not status.get("swap_used"):
+                swap_info = self._safe_run(client, "cat /proc/swaps 2>/dev/null | tail -n +2 | awk '{s+=$3; u+=$4} END {print s, u}'")
+                if swap_info:
+                    try:
+                        size_kb, used_kb = [int(x) for x in swap_info.split()[:2]]
+                        status["swap_total"] = round(size_kb / 1024)
+                        status["swap_used"] = round(used_kb / 1024)
+                    except (ValueError, IndexError):
+                        pass
             if mem_total and mem_total > 0 and mem_used is not None:
                 status["mem_percent"] = round(mem_used / mem_total * 100, 1)
 
