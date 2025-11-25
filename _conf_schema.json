@@ -40,5 +40,11 @@
         "description": "命令超时时间，单位秒",
         "default": 60,
         "hint": "如果命令执行超时将中断本次执行"
+    },
+    "status_fetch_command": {
+        "type": "string",
+        "description": "状态图片中用于展示的 fetch 命令，留空可关闭（如：neofetch --stdout 或 fastfetch --stdout）",
+        "default": "neofetch --stdout",
+        "hint": "需保证远程主机已安装对应命令"
     }
 }

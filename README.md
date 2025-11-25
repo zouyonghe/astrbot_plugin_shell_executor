@@ -50,6 +50,7 @@ pip install paramiko
 - `private_key_path`：SSH 私钥路径，默认值为 `~/.ssh/id_rsa`。
 - `passphrase`：用于解锁私钥的密码（如果密钥加密）。
 - `timeout`：连接超时时间，默认值为 `60 秒`。
+- `status_fetch_command`：在状态图片里渲染的 fetch 命令，默认 `neofetch --stdout`，可改为 `fastfetch --stdout` 或留空关闭。
 
 ## 使用方法
 
@@ -69,7 +70,7 @@ shell check
 shell status
 ```
 
-图片内容包含 CPU、内存、磁盘、GPU、运行时长等基础指标，生成失败时会返回文本摘要。
+图片内容包含 CPU、内存、磁盘、GPU、运行时长等基础指标，并可在右侧/下方展示 `neofetch`/`fastfetch` 的输出（通过 `status_fetch_command` 配置）。生成失败时会返回文本摘要。
 
 ### 3. 系统更新命令（针对 Arch 系统）
 

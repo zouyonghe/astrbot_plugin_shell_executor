@@ -1,4 +1,5 @@
 import html
+import os
 import re
 import shlex
 from datetime import datetime
@@ -28,6 +29,7 @@ class ShellExecutor(Star):
         self.private_key_path = self.config.get("private_key_path", "~/.ssh/id_rsa")
         self.passphrase = self.config.get("passphrase", "")
         self.timeout = self.config.get("timeout", 60)
+        self.fetch_command = self.config.get("status_fetch_command", "neofetch --stdout")
 
     def connect_client(self):
         """
@@ -127,6 +129,84 @@ class ShellExecutor(Star):
             except ValueError:
                 return None
         return None
+
+    def _ansi_to_html(self, text: str) -> str:
+        """将 ANSI 颜色序列转换为简单的 HTML span 样式"""
+        if not text:
+            return ""
+
+        ansi_re = re.compile(r"\x1b\[([\d;]*)m")
+        color_map = {
+            30: "#111827", 31: "#ef4444", 32: "#22c55e", 33: "#eab308",
+            34: "#3b82f6", 35: "#a855f7", 36: "#06b6d4", 37: "#f3f4f6",
+            90: "#6b7280", 91: "#f87171", 92: "#86efac", 93: "#fcd34d",
+            94: "#93c5fd", 95: "#d8b4fe", 96: "#67e8f9", 97: "#ffffff",
+        }
+
+        def color_for(code: int) -> str | None:
+            if 30 <= code <= 37 or 90 <= code <= 97:
+                return color_map.get(code)
+            if 40 <= code <= 47:
+                return color_map.get(code - 10)
+            if 100 <= code <= 107:
+                return color_map.get(code - 60)
+            return None
+
+        state = {"fg": None, "bg": None, "bold": False, "dim": False}
+        open_style = None
+        out_parts = []
+        last = 0
+
+        def style_to_str(s: dict) -> str:
+            parts = []
+            if s["fg"]:
+                parts.append(f"color:{s['fg']}")
+            if s["bg"]:
+                parts.append(f"background:{s['bg']}")
+            if s["bold"]:
+                parts.append("font-weight:700")
+            if s["dim"]:
+                parts.append("opacity:0.85")
+            return ";".join(parts)
+
+        for match in ansi_re.finditer(text):
+            out_parts.append(html.escape(text[last:match.start()]))
+            codes_raw = match.group(1)
+            codes = [int(c) for c in codes_raw.split(";") if c] if codes_raw else [0]
+            for code in codes:
+                if code == 0:
+                    state = {"fg": None, "bg": None, "bold": False, "dim": False}
+                elif code == 1:
+                    state["bold"] = True
+                elif code == 2:
+                    state["dim"] = True
+                elif code == 22:
+                    state["bold"] = False
+                    state["dim"] = False
+                elif code == 39:
+                    state["fg"] = None
+                elif code == 49:
+                    state["bg"] = None
+                else:
+                    clr = color_for(code)
+                    if clr:
+                        if 30 <= code <= 37 or 90 <= code <= 97:
+                            state["fg"] = clr
+                        else:
+                            state["bg"] = clr
+            style = style_to_str(state)
+            if style != open_style:
+                if open_style:
+                    out_parts.append("</span>")
+                if style:
+                    out_parts.append(f"<span style=\"{style}\">")
+                open_style = style
+            last = match.end()
+
+        out_parts.append(html.escape(text[last:]))
+        if open_style:
+            out_parts.append("</span>")
+        return "".join(out_parts)
 
     def _collect_remote_status(self) -> dict:
         """
@@ -230,6 +310,9 @@ class ShellExecutor(Star):
             status["timestamp"] = self._safe_run(
                 client, "date '+%Y-%m-%d %H:%M:%S %Z'"
             ) or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            fetch_cmd = (self.fetch_command or "").strip()
+            if fetch_cmd and fetch_cmd.lower() != "none":
+                status["fetch_output"] = self._safe_run(client, fetch_cmd)
             status["summary_text"] = self._build_summary_text(status)
             return status
         finally:
@@ -293,6 +376,20 @@ class ShellExecutor(Star):
         cpu_usage = status.get("cpu_usage")
         cpu_usage_display = f"{cpu_usage}%" if cpu_usage is not None else "-"
         mem_percent_display = f"{mem_percent}%" if mem_percent is not None else "-"
+        fetch_output = status.get("fetch_output", "")
+        has_fetch = bool(fetch_output)
+        main_grid_class = "main-grid has-fetch" if has_fetch else "main-grid"
+        fetch_html = ""
+        if fetch_output:
+            fetch_html = f"""
+            <div class="panel fetch-panel">
+                <div class="fetch-header">
+                    <h3>系统信息 (fetch)</h3>
+                    <div class="muted">来自 {esc(self.fetch_command)}</div>
+                </div>
+                <pre class="ansi-block">{self._ansi_to_html(fetch_output)}</pre>
+            </div>
+            """
 
         return f"""
         <html>
@@ -346,9 +443,28 @@ class ShellExecutor(Star):
                     font-size: 12px;
                     color: #8b95a5;
                 }}
-                .grid {{
+                .main-grid {{
                     display: grid;
                     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                    gap: 12px;
+                    align-items: start;
+                }}
+                .main-grid.has-fetch {{
+                    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+                }}
+                @media (max-width: 860px) {{
+                    .main-grid.has-fetch {{
+                        grid-template-columns: 1fr;
+                    }}
+                }}
+                .info-col {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                }}
+                .grid {{
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
                     gap: 12px;
                 }}
                 .panel {{
@@ -412,6 +528,24 @@ class ShellExecutor(Star):
                 .gpu-meta {{
                     color: #cbd5e1;
                 }}
+                .fetch-panel pre {{
+                    margin: 8px 0 0 0;
+                    font-size: 13px;
+                    line-height: 1.15;
+                    white-space: pre;
+                    overflow: auto;
+                    color: #e5e7eb;
+                    background: rgba(255, 255, 255, 0.02);
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border-radius: 10px;
+                    padding: 10px;
+                }}
+                .fetch-header {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: baseline;
+                    gap: 8px;
+                }}
             </style>
         </head>
         <body>
@@ -426,32 +560,37 @@ class ShellExecutor(Star):
                         <div>时间: {esc(status.get("timestamp"))}</div>
                     </div>
                 </div>
-                <div class="grid">
-                    <div class="panel">
-                        <h3>CPU</h3>
-                        <div class="value">{cpu_usage_display}</div>
-                        <div class="muted">{esc(status.get("cpu_model"))}</div>
-                        <div class="muted" style="margin-top:4px;">平均负载: {load_avg}</div>
+                <div class="{main_grid_class}">
+                    <div class="info-col">
+                        <div class="grid">
+                            <div class="panel">
+                                <h3>CPU</h3>
+                                <div class="value">{cpu_usage_display}</div>
+                                <div class="muted">{esc(status.get("cpu_model"))}</div>
+                                <div class="muted" style="margin-top:4px;">平均负载: {load_avg}</div>
+                            </div>
+                            <div class="panel">
+                                <h3>内存</h3>
+                                <div class="value">{mem_percent_display}</div>
+                                <div class="muted">{mem_line}</div>
+                                <div class="muted" style="margin-top:4px;">Swap: {esc(status.get("swap_used") or '-')} / {esc(status.get("swap_total") or '-')} MiB</div>
+                            </div>
+                            <div class="panel">
+                                <h3>运行时间</h3>
+                                <div class="value">{esc(status.get("uptime", "-"))}</div>
+                                <div class="muted">内核 {esc(status.get("kernel"))}</div>
+                            </div>
+                        </div>
+                        <div class="panel">
+                            <h3>磁盘</h3>
+                            {disks_html}
+                        </div>
+                        <div class="panel">
+                            <h3>GPU</h3>
+                            {gpus_html}
+                        </div>
                     </div>
-                    <div class="panel">
-                        <h3>内存</h3>
-                        <div class="value">{mem_percent_display}</div>
-                        <div class="muted">{mem_line}</div>
-                        <div class="muted" style="margin-top:4px;">Swap: {esc(status.get("swap_used") or '-')} / {esc(status.get("swap_total") or '-')} MiB</div>
-                    </div>
-                    <div class="panel">
-                        <h3>运行时间</h3>
-                        <div class="value">{esc(status.get("uptime", "-"))}</div>
-                        <div class="muted">内核 {esc(status.get("kernel"))}</div>
-                    </div>
-                </div>
-                <div class="panel" style="margin-top:12px;">
-                    <h3>磁盘</h3>
-                    {disks_html}
-                </div>
-                <div class="panel" style="margin-top:12px;">
-                    <h3>GPU</h3>
-                    {gpus_html}
+                    {fetch_html}
                 </div>
             </div>
         </body>
