@@ -233,6 +233,14 @@ class ShellExecutor(Star):
                 client, "grep 'model name' /proc/cpuinfo | head -n 1 | cut -d: -f2"
             )
             status["cpu_model"] = cpu_model.strip() if cpu_model else "Unknown CPU"
+            cpu_freq = self._safe_run(
+                client, "awk '/cpu MHz/ {print $4; exit}' /proc/cpuinfo"
+            )
+            cpu_freq_max = self._safe_run(
+                client, "lscpu 2>/dev/null | awk -F: '/CPU max MHz/ {gsub(/^[ \\t]+/, \"\", $2); print $2; exit}'"
+            )
+            status["cpu_freq"] = cpu_freq.strip() if cpu_freq else None
+            status["cpu_freq_max"] = cpu_freq_max.strip() if cpu_freq_max else None
             cpu_line = self._safe_run(client, "LANG=C top -bn1 | grep \"Cpu(s)\"")
             status["cpu_usage"] = self._parse_cpu_usage(cpu_line)
 
@@ -288,12 +296,12 @@ class ShellExecutor(Star):
 
             gpu_output = self._safe_run(
                 client,
-                "nvidia-smi --query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu --format=csv,noheader",
+                "nvidia-smi --query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu,clocks.gr,clocks.mem --format=csv,noheader",
             )
             gpus = []
             for line in gpu_output.splitlines():
                 fields = [f.strip() for f in line.split(",")]
-                if len(fields) >= 5:
+                if len(fields) >= 7:
                     def num(val: str) -> str:
                         return re.sub(r"[^0-9.]", "", val)
 
@@ -304,6 +312,8 @@ class ShellExecutor(Star):
                             "mem_total": num(fields[2]),
                             "util": num(fields[3]),
                             "temp": num(fields[4]),
+                            "clock_core": num(fields[5]),
+                            "clock_mem": num(fields[6]),
                         }
                     )
             status["gpus"] = gpus
@@ -362,10 +372,47 @@ class ShellExecutor(Star):
 
         gpus_html = ""
         for gpu in status.get("gpus", []):
+            mem_used = gpu.get("mem_used")
+            mem_total = gpu.get("mem_total")
+            mem_percent = "-"
+            try:
+                used_val = float(mem_used)
+                total_val = float(mem_total)
+                if total_val > 0:
+                    mem_percent = round(used_val / total_val * 100)
+            except (TypeError, ValueError):
+                pass
+
+            util_percent = "-"
+            try:
+                util_percent = round(float(gpu.get("util")))
+            except (TypeError, ValueError):
+                pass
+
+            mem_display = f"{esc(mem_used)} / {esc(mem_total)} MiB"
+            util_display = f"{esc(gpu.get('util'))}%"
+            core_clock = gpu.get("clock_core")
+            mem_clock = gpu.get("clock_mem")
+            core_display = f"{esc(core_clock)} MHz" if core_clock else "-"
+            mem_clock_display = f"{esc(mem_clock)} MHz" if mem_clock else "-"
+            temp_display = f"{esc(gpu.get('temp'))}℃" if gpu.get("temp") else "-"
             gpus_html += f"""
             <div class="gpu-row">
-                <div class="gpu-name">{esc(gpu.get("name"))}</div>
-                <div class="gpu-meta">显存 {esc(gpu.get("mem_used"))} / {esc(gpu.get("mem_total"))} MiB · 负载 {esc(gpu.get("util"))}% · 温度 {esc(gpu.get("temp"))}℃</div>
+                <div class="gpu-head">
+                    <div class="gpu-name">{esc(gpu.get("name"))}</div>
+                    <div class="gpu-meta">温度 {temp_display}</div>
+                </div>
+                <div class="gpu-meta small">核心频率 {core_display} · 显存频率 {mem_clock_display}</div>
+                <div class="gpu-bar">
+                    <div class="gpu-label">显存</div>
+                    <div class="bar"><span style="width:{mem_percent if mem_percent != '-' else 0}%"></span></div>
+                    <div class="gpu-value">{mem_display}{f' ({mem_percent}%)' if mem_percent != '-' else ''}</div>
+                </div>
+                <div class="gpu-bar">
+                    <div class="gpu-label">负载</div>
+                    <div class="bar"><span style="width:{util_percent if util_percent != '-' else 0}%"></span></div>
+                    <div class="gpu-value">{util_display}</div>
+                </div>
             </div>
             """
         if not gpus_html:
@@ -374,6 +421,24 @@ class ShellExecutor(Star):
         cpu_usage = status.get("cpu_usage")
         cpu_usage_display = f"{cpu_usage}%" if cpu_usage is not None else "-"
         mem_percent_display = f"{mem_percent}%" if mem_percent is not None else "-"
+        cpu_freq = status.get("cpu_freq")
+        cpu_freq_max = status.get("cpu_freq_max")
+        cpu_freq_line = ""
+        if cpu_freq:
+            freq_val = cpu_freq
+            try:
+                freq_val_num = float(cpu_freq)
+                freq_val = f"{round(freq_val_num, 1)}"
+            except (TypeError, ValueError):
+                pass
+            max_part = ""
+            if cpu_freq_max:
+                try:
+                    max_val_num = float(cpu_freq_max)
+                    max_part = f" / {round(max_val_num, 1)}"
+                except (TypeError, ValueError):
+                    max_part = f" / {cpu_freq_max}"
+            cpu_freq_line = f"频率: {freq_val}{max_part} MHz"
 
         return f"""
         <html>
@@ -457,13 +522,20 @@ class ShellExecutor(Star):
                 .muted {{
                     color: #6b7280;
                 }}
-                .disk-row, .gpu-row {{
+                .disk-row {{
                     display: flex;
                     flex-wrap: wrap;
                     align-items: center;
                     gap: 8px;
                     font-size: 13px;
                     margin-bottom: 6px;
+                }}
+                .gpu-row {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    font-size: 13px;
+                    margin-bottom: 8px;
                 }}
                 .bar {{
                     flex: 1 1 200px;
@@ -497,6 +569,32 @@ class ShellExecutor(Star):
                 }}
                 .gpu-meta {{
                     color: #cbd5e1;
+                }}
+                .gpu-meta.small {{
+                    color: #9ca3af;
+                }}
+                .gpu-head {{
+                    width: 100%;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 8px;
+                }}
+                .gpu-bar {{
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }}
+                .gpu-label {{
+                    min-width: 48px;
+                    color: #9ca3af;
+                }}
+                .gpu-value {{
+                    min-width: 120px;
+                    text-align: right;
+                    color: #e5e7eb;
+                    font-variant-numeric: tabular-nums;
                 }}
                 .fetch-panel pre {{
                     margin: 8px 0 0 0;
@@ -535,6 +633,7 @@ class ShellExecutor(Star):
                         <h3>CPU</h3>
                         <div class="value">{cpu_usage_display}</div>
                         <div class="muted">{esc(status.get("cpu_model"))}</div>
+                        <div class="muted" style="margin-top:4px;">{cpu_freq_line or '频率: -'}</div>
                         <div class="muted" style="margin-top:4px;">平均负载: {load_avg}</div>
                     </div>
                     <div class="panel">
