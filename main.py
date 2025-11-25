@@ -302,19 +302,21 @@ class ShellExecutor(Star):
                 * {{ box-sizing: border-box; }}
                 body {{
                     margin: 0;
-                    padding: 24px;
+                    padding: 12px 14px;
                     font-family: "JetBrains Mono","SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
                     background: radial-gradient(circle at 20% 20%, #1f2937 0, #0b1220 35%, #090d17 70%, #05070d 100%);
                     color: #e6e9f0;
+                    display: flex;
+                    justify-content: center;
                 }}
                 .card {{
-                    max-width: 900px;
+                    width: min(960px, 100%);
                     margin: 0 auto;
                     background: rgba(17, 24, 39, 0.72);
                     border: 1px solid rgba(255, 255, 255, 0.06);
-                    border-radius: 18px;
-                    box-shadow: 0 20px 80px rgba(0, 0, 0, 0.4);
-                    padding: 22px 26px;
+                    border-radius: 16px;
+                    box-shadow: 0 14px 48px rgba(0, 0, 0, 0.45);
+                    padding: 18px 20px;
                     backdrop-filter: blur(10px);
                 }}
                 .header {{
