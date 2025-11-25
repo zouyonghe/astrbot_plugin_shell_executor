@@ -208,6 +208,26 @@ class ShellExecutor(Star):
             out_parts.append("</span>")
         return "".join(out_parts)
 
+    def _split_fetch_output(self, fetch_output: str) -> tuple[list[str], list[str]]:
+        """拆分 fetch 输出为 logo 与信息两列"""
+        ascii_lines: list[str] = []
+        info_lines: list[str] = []
+        for raw_line in fetch_output.splitlines():
+            line = raw_line.rstrip("\n")
+            if not line:
+                ascii_lines.append("")
+                info_lines.append("")
+                continue
+            match = re.match(r"^(.*?)(?: {2,})(.+)$", line)
+            if match:
+                ascii_part, info_part = match.groups()
+                ascii_lines.append(ascii_part)
+                info_lines.append(info_part)
+            else:
+                ascii_lines.append(line)
+                info_lines.append("")
+        return ascii_lines, info_lines
+
     def _collect_remote_status(self) -> dict:
         """
         收集远程主机的基础状态信息，供图片渲染使用。
@@ -378,16 +398,19 @@ class ShellExecutor(Star):
         mem_percent_display = f"{mem_percent}%" if mem_percent is not None else "-"
         fetch_output = status.get("fetch_output", "")
         has_fetch = bool(fetch_output)
-        main_grid_class = "main-grid has-fetch" if has_fetch else "main-grid"
         fetch_html = ""
         if fetch_output:
+            logo_lines, info_lines = self._split_fetch_output(fetch_output)
             fetch_html = f"""
             <div class="panel fetch-panel">
                 <div class="fetch-header">
                     <h3>系统信息 (fetch)</h3>
                     <div class="muted">来自 {esc(self.fetch_command)}</div>
                 </div>
-                <pre class="ansi-block">{self._ansi_to_html(fetch_output)}</pre>
+                <div class="fetch-body">
+                    <pre class="ansi-block">{self._ansi_to_html("\\n".join(logo_lines))}</pre>
+                    <pre class="ansi-block fetch-info">{self._ansi_to_html("\\n".join(info_lines))}</pre>
+                </div>
             </div>
             """
 
@@ -407,13 +430,13 @@ class ShellExecutor(Star):
                     justify-content: center;
                 }}
                 .card {{
-                    width: min(960px, 100%);
+                    width: min(1100px, 100%);
                     margin: 0 auto;
                     background: rgba(17, 24, 39, 0.72);
                     border: 1px solid rgba(255, 255, 255, 0.06);
                     border-radius: 16px;
                     box-shadow: 0 14px 48px rgba(0, 0, 0, 0.45);
-                    padding: 18px 20px;
+                    padding: 16px 18px 18px 18px;
                     backdrop-filter: blur(10px);
                 }}
                 .header {{
@@ -443,28 +466,14 @@ class ShellExecutor(Star):
                     font-size: 12px;
                     color: #8b95a5;
                 }}
-                .main-grid {{
+                .section {{
+                    margin-top: 12px;
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-                    gap: 12px;
-                    align-items: start;
-                }}
-                .main-grid.has-fetch {{
-                    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-                }}
-                @media (max-width: 860px) {{
-                    .main-grid.has-fetch {{
-                        grid-template-columns: 1fr;
-                    }}
-                }}
-                .info-col {{
-                    display: flex;
-                    flex-direction: column;
                     gap: 12px;
                 }}
-                .grid {{
+                .triple-grid {{
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
                     gap: 12px;
                 }}
                 .panel {{
@@ -529,9 +538,9 @@ class ShellExecutor(Star):
                     color: #cbd5e1;
                 }}
                 .fetch-panel pre {{
-                    margin: 8px 0 0 0;
+                    margin: 0;
                     font-size: 13px;
-                    line-height: 1.15;
+                    line-height: 1.1;
                     white-space: pre;
                     overflow: auto;
                     color: #e5e7eb;
@@ -545,6 +554,21 @@ class ShellExecutor(Star):
                     justify-content: space-between;
                     align-items: baseline;
                     gap: 8px;
+                }}
+                .fetch-body {{
+                    display: grid;
+                    grid-template-columns: auto 1fr;
+                    gap: 12px;
+                    margin-top: 8px;
+                    align-items: start;
+                }}
+                .fetch-info {{
+                    min-width: 280px;
+                }}
+                @media (max-width: 860px) {{
+                    .fetch-body {{
+                        grid-template-columns: 1fr;
+                    }}
                 }}
             </style>
         </head>
@@ -560,37 +584,37 @@ class ShellExecutor(Star):
                         <div>时间: {esc(status.get("timestamp"))}</div>
                     </div>
                 </div>
-                <div class="{main_grid_class}">
-                    <div class="info-col">
-                        <div class="grid">
-                            <div class="panel">
-                                <h3>CPU</h3>
-                                <div class="value">{cpu_usage_display}</div>
-                                <div class="muted">{esc(status.get("cpu_model"))}</div>
-                                <div class="muted" style="margin-top:4px;">平均负载: {load_avg}</div>
-                            </div>
-                            <div class="panel">
-                                <h3>内存</h3>
-                                <div class="value">{mem_percent_display}</div>
-                                <div class="muted">{mem_line}</div>
-                                <div class="muted" style="margin-top:4px;">Swap: {esc(status.get("swap_used") or '-')} / {esc(status.get("swap_total") or '-')} MiB</div>
-                            </div>
-                            <div class="panel">
-                                <h3>运行时间</h3>
-                                <div class="value">{esc(status.get("uptime", "-"))}</div>
-                                <div class="muted">内核 {esc(status.get("kernel"))}</div>
-                            </div>
-                        </div>
-                        <div class="panel">
-                            <h3>磁盘</h3>
-                            {disks_html}
-                        </div>
-                        <div class="panel">
-                            <h3>GPU</h3>
-                            {gpus_html}
-                        </div>
+                {fetch_html if has_fetch else ""}
+                <div class="section triple-grid">
+                    <div class="panel">
+                        <h3>CPU</h3>
+                        <div class="value">{cpu_usage_display}</div>
+                        <div class="muted">{esc(status.get("cpu_model"))}</div>
+                        <div class="muted" style="margin-top:4px;">平均负载: {load_avg}</div>
                     </div>
-                    {fetch_html}
+                    <div class="panel">
+                        <h3>内存</h3>
+                        <div class="value">{mem_percent_display}</div>
+                        <div class="muted">{mem_line}</div>
+                        <div class="muted" style="margin-top:4px;">Swap: {esc(status.get("swap_used") or '-')} / {esc(status.get("swap_total") or '-')} MiB</div>
+                    </div>
+                    <div class="panel">
+                        <h3>运行时间</h3>
+                        <div class="value">{esc(status.get("uptime", "-"))}</div>
+                        <div class="muted">内核 {esc(status.get("kernel"))}</div>
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="panel">
+                        <h3>GPU</h3>
+                        {gpus_html}
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="panel">
+                        <h3>磁盘</h3>
+                        {disks_html}
+                    </div>
                 </div>
             </div>
         </body>
