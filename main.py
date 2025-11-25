@@ -118,17 +118,34 @@ class ShellExecutor(Star):
             logger.error(f"[命令失败] {cmd}: {e}")
             return ""
 
-    def _parse_cpu_usage(self, top_line: str) -> float | None:
-        """从 top 输出中提取 CPU 使用率"""
+    def _parse_cpu_usage(self, top_line: str) -> dict | None:
+        """从 top 输出中提取 CPU 使用率及分布"""
         if not top_line:
             return None
-        match = re.search(r"(\d+(?:\.\d+)?)%id", top_line)
-        if match:
+
+        metrics: dict[str, float] = {}
+        for val, label in re.findall(r"([\d.]+)\s*%?\s*([a-zA-Z]+)", top_line):
             try:
-                return round(100 - float(match.group(1)), 1)
+                metrics[label.lower()] = float(val)
             except ValueError:
-                return None
-        return None
+                continue
+
+        if not metrics:
+            return None
+
+        idle = metrics.get("id") or metrics.get("idle")
+
+        def r(v: float | None) -> float | None:
+            return round(v, 1) if v is not None else None
+
+        total = r(100 - idle) if idle is not None else None
+        return {
+            "total": total,
+            "user": r(metrics.get("us") or metrics.get("user")),
+            "system": r(metrics.get("sy") or metrics.get("sys")),
+            "iowait": r(metrics.get("wa")),
+            "idle": r(idle),
+        }
 
     def _ansi_to_html(self, text: str) -> str:
         """将 ANSI 颜色序列转换为简单的 HTML span 样式"""
@@ -242,7 +259,11 @@ class ShellExecutor(Star):
             status["cpu_freq"] = cpu_freq.strip() if cpu_freq else None
             status["cpu_freq_max"] = cpu_freq_max.strip() if cpu_freq_max else None
             cpu_line = self._safe_run(client, "LANG=C top -bn1 | grep \"Cpu(s)\"")
-            status["cpu_usage"] = self._parse_cpu_usage(cpu_line)
+            cpu_usage_detail = self._parse_cpu_usage(cpu_line)
+            status["cpu_usage_detail"] = cpu_usage_detail
+            status["cpu_usage"] = (
+                cpu_usage_detail.get("total") if isinstance(cpu_usage_detail, dict) else None
+            )
 
             mem_output = self._safe_run(client, "free -m")
             mem_total = mem_used = swap_total = swap_used = None
@@ -419,6 +440,7 @@ class ShellExecutor(Star):
             gpus_html = "<div class='gpu-row muted'>GPU 信息不可用或无显卡</div>"
 
         cpu_usage = status.get("cpu_usage")
+        cpu_usage_detail = status.get("cpu_usage_detail") or {}
         cpu_usage_display = f"{cpu_usage}%" if cpu_usage is not None else "-"
         mem_percent_display = f"{mem_percent}%" if mem_percent is not None else "-"
         cpu_freq = status.get("cpu_freq")
@@ -439,6 +461,19 @@ class ShellExecutor(Star):
                 except (TypeError, ValueError):
                     max_part = f" / {cpu_freq_max}"
             cpu_freq_line = f"频率: {freq_val}{max_part} MHz"
+
+        cpu_breakdown_line = ""
+        cpu_parts = []
+        if cpu_usage_detail.get("user") is not None:
+            cpu_parts.append(f"用户 {cpu_usage_detail['user']}%")
+        if cpu_usage_detail.get("system") is not None:
+            cpu_parts.append(f"系统 {cpu_usage_detail['system']}%")
+        if cpu_usage_detail.get("iowait") is not None:
+            cpu_parts.append(f"I/O等待 {cpu_usage_detail['iowait']}%")
+        if cpu_parts:
+            cpu_breakdown_line = "分布: " + " · ".join(cpu_parts)
+        elif cpu_usage_display != "-":
+            cpu_breakdown_line = f"分布: 总占用 {cpu_usage_display}"
 
         return f"""
         <html>
@@ -514,19 +549,34 @@ class ShellExecutor(Star):
                     color: #cbd5e1;
                     letter-spacing: 0.2px;
                 }}
+                .value-row {{
+                    display: flex;
+                    align-items: baseline;
+                    gap: 8px;
+                    flex-wrap: wrap;
+                }}
                 .value {{
                     font-size: 20px;
                     font-weight: 700;
                     color: #f8fafc;
                 }}
+                .pill {{
+                    padding: 2px 8px;
+                    background: rgba(255, 255, 255, 0.08);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    border-radius: 999px;
+                    color: #cbd5e1;
+                    font-size: 12px;
+                    line-height: 1.4;
+                }}
                 .muted {{
                     color: #6b7280;
                 }}
                 .disk-row {{
-                    display: flex;
-                    flex-wrap: wrap;
+                    display: grid;
+                    grid-template-columns: 110px 170px 1fr 60px;
                     align-items: center;
-                    gap: 8px;
+                    gap: 10px;
                     font-size: 13px;
                     margin-bottom: 6px;
                 }}
@@ -538,7 +588,7 @@ class ShellExecutor(Star):
                     margin-bottom: 8px;
                 }}
                 .bar {{
-                    flex: 1 1 200px;
+                    width: 100%;
                     height: 8px;
                     background: rgba(255, 255, 255, 0.08);
                     border-radius: 4px;
@@ -582,19 +632,32 @@ class ShellExecutor(Star):
                 }}
                 .gpu-bar {{
                     width: 100%;
-                    display: flex;
+                    display: grid;
+                    grid-template-columns: 64px 1fr 130px;
                     align-items: center;
                     gap: 10px;
                 }}
                 .gpu-label {{
-                    min-width: 48px;
+                    width: 64px;
                     color: #9ca3af;
                 }}
                 .gpu-value {{
-                    min-width: 120px;
+                    width: 130px;
                     text-align: right;
                     color: #e5e7eb;
                     font-variant-numeric: tabular-nums;
+                }}
+                @media (max-width: 780px) {{
+                    .disk-row {{
+                        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                    }}
+                    .gpu-bar {{
+                        grid-template-columns: 80px 1fr;
+                    }}
+                    .gpu-value {{
+                        width: auto;
+                        justify-self: end;
+                    }}
                 }}
                 .fetch-panel pre {{
                     margin: 8px 0 0 0;
@@ -631,9 +694,13 @@ class ShellExecutor(Star):
                 <div class="section triple-grid">
                     <div class="panel">
                         <h3>CPU</h3>
-                        <div class="value">{cpu_usage_display}</div>
-                        <div class="muted">{esc(status.get("cpu_model"))}</div>
-                        <div class="muted" style="margin-top:4px;">{cpu_freq_line or '频率: -'}</div>
+                        <div class="value-row">
+                            <div class="value">{cpu_usage_display}</div>
+                            <div class="pill">总占用</div>
+                        </div>
+                        <div class="muted" style="margin-top:2px;">{cpu_breakdown_line or '分布: 未获取'}</div>
+                        <div class="muted" style="margin-top:4px;">{esc(status.get("cpu_model"))}</div>
+                        <div class="muted" style="margin-top:4px;">{cpu_freq_line or '频率: 未获取'}</div>
                         <div class="muted" style="margin-top:4px;">平均负载: {load_avg}</div>
                     </div>
                     <div class="panel">
