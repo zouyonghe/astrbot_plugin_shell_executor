@@ -10,7 +10,7 @@ from astrbot.api.all import *
 from astrbot.api.event.filter import *
 
 
-@register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.5",
+@register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.6",
           "https://github.com/zouyonghe/astrbot_plugin_shell_executor")
 class ShellExecutor(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -172,8 +172,8 @@ class ShellExecutor(Star):
     def _get_memory_speed(self, client: paramiko.SSHClient) -> str | None:
         """尝试获取预设/配置的内存速度（MT/s），主要依赖 dmidecode"""
         dmidecode_cmds = [
-            r"sudo -n dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MT/s\" && $2!=\"0 MHz\" && $2!=\"0\") print $1 \":\" $2}'",
-            r"PATH=$PATH:/usr/sbin:/sbin dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {gsub(/^[ \t]+/,\"\",$2); if($2!=\"Unknown\" && $2!=\"0 MT/s\" && $2!=\"0 MHz\" && $2!=\"0\") print $1 \":\" $2}'",
+            """sudo -n dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {sub(/^[[:space:]]+/, "", $2); if($2!="Unknown" && $2!="0 MT/s" && $2!="0 MHz" && $2!="0") print $1 ":" $2}'""",
+            """PATH=$PATH:/usr/sbin:/sbin dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed|Configured Clock Speed|Speed/ {sub(/^[[:space:]]+/, "", $2); if($2!="Unknown" && $2!="0 MT/s" && $2!="0 MHz" && $2!="0") print $1 ":" $2}'""",
         ]
 
         def best_from_dmidecode(cmds: list[str]) -> float | None:
