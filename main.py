@@ -10,7 +10,7 @@ from astrbot.api.all import *
 from astrbot.api.event.filter import *
 
 
-@register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.4",
+@register("shell_executor", "buding", "用于远程shell命令执行的插件", "1.0.5",
           "https://github.com/zouyonghe/astrbot_plugin_shell_executor")
 class ShellExecutor(Star):
     def __init__(self, context: Context, config: AstrBotConfig):

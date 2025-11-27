@@ -1,6 +1,6 @@
 name: astrbot_plugin_shell_executor
 desc: 用于远程执行shell命令的AstrBot插件
 help: 输入 /shell 查看关键词回复帮助
-version: v1.0.4
+version: v1.0.5
 author: buding
 repo: https://github.com/zouyonghe/astrbot_plugin_shell_executor
